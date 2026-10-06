@@ -15,10 +15,12 @@ export function deploymentIdentity(env, config) {
       || typeof config.judgeIssuer !== 'string'
       || !/^https:\/\/[a-z0-9-]+\.up\.railway\.app\/defense\/judge$/iu.test(config.judgeIssuer)
       || typeof config.sampleMarker !== 'string'
+      || (config.step >= 5 && (!/^https:\/\/[^?#]+$/iu.test(config.originalApiUrl || '')
+        || !Array.isArray(config.allowedRoutes) || !config.allowedRoutes.length))
       || !/^[A-Z0-9_]{1,80}$/u.test(config.sampleMarker)) {
     throw new Error('배포 식별 정보를 확인할 수 없습니다. Vercel 시스템 환경변수와 1단계 시작 틀을 확인하세요.');
   }
-  return {
+  const identity = {
     schema: 'aleph.defense.deployment.v1',
     step: config.step,
     repoUrl: `https://github.com/${owner.toLowerCase()}/${repo.toLowerCase()}`,
@@ -27,4 +29,9 @@ export function deploymentIdentity(env, config) {
     judgeIssuer: config.judgeIssuer,
     sampleMarker: config.sampleMarker,
   };
+  if (config.step >= 5) {
+    identity.originalApiUrl = config.originalApiUrl;
+    identity.allowedRoutes = config.allowedRoutes;
+  }
+  return identity;
 }
