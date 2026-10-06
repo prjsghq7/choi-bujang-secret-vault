@@ -1,0 +1,18 @@
+2단계 자료 보호 이력
+
+완료일: 2026-10-06
+
+- Supabase 프로젝트 choi-bujang-secret-vault 생성 (리전: Singapore).
+- public.notes 테이블 생성: owner_id uuid, title, content, created_at.
+- RLS 활성화 확인. anon/authenticated 읽기 권한 없음 확인.
+- 가상 메모 4건을 Supabase에 입력. 실제 개인정보·비밀값 없음.
+- api/notes.js 추가: SUPABASE_URL과 서버 전용 SUPABASE_SECRET_KEY를 환경변수에서만 읽음. 키는 응답·로그·브라우저 코드에 넣지 않음.
+- public/index.html이 /api/notes를 호출하도록 변경.
+- 루트 data.json과 public/data.json의 notes를 비움.
+- Vercel Production 환경변수 저장 후 재배포. 배포 상태 Ready 확인.
+- 현재 /api/notes 주소는 공개되어 있으며, 접근 제한은 다음 단계 과제임.
+- 이전 공개 커밋과 배포 이력은 삭제하지 않음.
+
+검증 메모
+- Supabase SQL 확인 결과: rls_enabled=true, note_count=4.
+- Vercel 최신 배포: Ready. 브라우저 보안 제한으로 /api/notes 직접 응답 본문은 이 환경에서 확인하지 못함.
