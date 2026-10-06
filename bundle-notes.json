@@ -1,4 +1,4 @@
 {
-  "explanation": "서버 API가 검증한 사용자 ID를 owner_id 조건에 항상 묶어 읽기·추가·수정·삭제를 본인 자료로 제한했습니다. Supabase authenticated 권한과 SELECT·INSERT·UPDATE·DELETE RLS 정책을 추가했습니다. 이전 공개 커밋과 배포 이력은 README에 기록했습니다.",
+  "explanation": "브라우저의 자료 요청을 /api/auth와 /api/notes 서버 함수로 모으고 Supabase 공개 키와 서버 키를 화면 번들에서 제거했습니다. anon 직접 접근 권한을 회수하고 allowedRoutes에 서버 경로를 기록했습니다. 로그인·소유자 검사는 이전 단계처럼 서버에서 유지합니다.",
   "blockedAt": null
 }

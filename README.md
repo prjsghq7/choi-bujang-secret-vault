@@ -37,3 +37,8 @@
 - Supabase `authenticated` 역할에 CRUD 권한을 부여하고 `auth.uid()`와 `owner_id`를 비교하는 RLS 정책을 적용합니다. `anon`은 계속 거부합니다.
 - 심판 토큰과 Supabase 사용자 토큰 모두 서버에서 검증하며, 서버 전용 키는 응답·브라우저·로그에 넣지 않습니다.
 - 이전 공개 커밋과 배포 이력은 남아 있으므로 과거 노출이 삭제됐다고 보지 않습니다.
+
+## 5단계: 자료 요청을 서버 한곳으로 모음
+- 브라우저는 `/api/auth`와 `/api/notes`만 호출하고 Supabase URL·공개 키·서버 전용 키를 포함하지 않습니다.
+- Supabase `anon` 직접 접근 권한은 회수되어 원본 Data API로 메모를 읽거나 수정할 수 없습니다.
+- `aleph.json`의 `allowedRoutes`에는 서버 함수 경로를 기록하고, 서버 함수의 로그인·소유자 검사는 유지합니다.

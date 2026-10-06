@@ -1,7 +1,7 @@
 // The student changes this check as each stage adds an attack to the same app.
 // Never return tokens, private keys, real names, or note bodies.
 export async function runAttackChecks(config) {
-  if (config.step !== 4) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  if (config.step !== 5) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   let app;
   try {
     app = new URL(config.publicAppUrl);
@@ -26,6 +26,8 @@ export async function runAttackChecks(config) {
   }
   const rootResponse = await fetch(app, { redirect: 'error', signal: AbortSignal.timeout(10000) });
   const rootText = await rootResponse.text();
+  const alephResponse = await fetch(new URL('/aleph.json', app), { redirect: 'error', signal: AbortSignal.timeout(10000) });
+  const aleph = await alephResponse.json();
   const githubResponse = await fetch('https://raw.githubusercontent.com/prjsghq7/choi-bujang-secret-vault/main/data.json', { redirect: 'error', signal: AbortSignal.timeout(10000) });
   const githubText = await githubResponse.text();
   return [
@@ -35,5 +37,9 @@ export async function runAttackChecks(config) {
       observed: /SAMPLE_NOTE_1|실습용 가상/u.test(rootText) ? '배포 응답에서 시험 문구가 발견됨' : `배포 응답에서 시험 문구가 보이지 않음 (HTTP ${rootResponse.status})` },
     { attackId: 'github_static_search', expected: 'GitHub 최신 공개 파일에 메모가 없음',
       observed: /SAMPLE_NOTE_1|실습용 가상/u.test(githubText) ? 'GitHub 최신 data.json에서 시험 문구가 발견됨' : `GitHub 최신 data.json에서 시험 문구가 보이지 않음 (HTTP ${githubResponse.status})` },
+    { attackId: 'public_storage_key_search', expected: '브라우저 번들에 공개 저장소 키가 없음',
+      observed: /supabase\.co|sb_publishable_|anon key|SUPABASE_SECRET_KEY/u.test(rootText) ? '브라우저 응답에서 저장소 키 표식이 발견됨' : `브라우저 응답에 저장소 키 표식이 없음 (HTTP ${rootResponse.status})` },
+    { attackId: 'allowed_routes_manifest', expected: 'aleph.json에 서버 허용 경로가 있음',
+      observed: Array.isArray(aleph.allowedRoutes) && aleph.allowedRoutes.length ? `허용 경로 ${aleph.allowedRoutes.length}개 확인 (HTTP ${alephResponse.status})` : '허용 경로가 없음' },
   ];
 }
