@@ -25,6 +25,16 @@ export async function runAttackChecks(config) {
       // A non-JSON response is a failed check, not a successful deployment.
     }
   }
-  return [{ attackId: 'anonymous_static_note_read', expected: '공개 정적 data.json에서 메모가 노출되지 않음',
-    observed: exposed ? '공개 정적 응답에서 메모 또는 확인 표시가 보임' : `공개 정적 응답에서 메모가 보이지 않음 (HTTP ${response.status})` }];
+  const rootResponse = await fetch(app, { redirect: 'error', signal: AbortSignal.timeout(10000) });
+  const rootText = await rootResponse.text();
+  const githubResponse = await fetch('https://raw.githubusercontent.com/prjsghq7/choi-bujang-secret-vault/main/data.json', { redirect: 'error', signal: AbortSignal.timeout(10000) });
+  const githubText = await githubResponse.text();
+  return [
+    { attackId: 'anonymous_static_note_read', expected: '공개 정적 data.json에서 메모가 노출되지 않음',
+      observed: exposed ? '공개 정적 응답에서 메모 또는 확인 표시가 보임' : `공개 정적 응답에서 메모가 보이지 않음 (HTTP ${response.status})` },
+    { attackId: 'deployment_secret_search', expected: 'Vercel 배포 번들에 시험 비밀값이 없음',
+      observed: /SAMPLE_NOTE_1|실습용 가상/u.test(rootText) ? '배포 응답에서 시험 문구가 발견됨' : `배포 응답에서 시험 문구가 보이지 않음 (HTTP ${rootResponse.status})` },
+    { attackId: 'github_static_search', expected: 'GitHub 최신 공개 파일에 메모가 없음',
+      observed: /SAMPLE_NOTE_1|실습용 가상/u.test(githubText) ? 'GitHub 최신 data.json에서 시험 문구가 발견됨' : `GitHub 최신 data.json에서 시험 문구가 보이지 않음 (HTTP ${githubResponse.status})` },
+  ];
 }
