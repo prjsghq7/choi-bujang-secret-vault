@@ -1,0 +1,4 @@
+{
+  "explanation": "Supabase notes 테이블과 RLS를 구성하고 서버 API로 가상 메모를 읽도록 화면을 전환했습니다. 공개 data.json과 public/data.json에서 메모와 SAMPLE_NOTE_1 표시를 제거했습니다. 이전 공개 커밋과 배포 이력은 남아 있음을 README에 기록했습니다.",
+  "blockedAt": null
+}
