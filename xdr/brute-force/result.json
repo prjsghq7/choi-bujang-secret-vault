@@ -1,0 +1,179 @@
+{
+  "schema": "aleph.xdr.result.v1",
+  "moduleKey": "brute-force",
+  "decisions": [
+    {
+      "alertId": "bf-01",
+      "action": "block",
+      "confidence": 0.98,
+      "reason": "짧은 시간에 반복된 로그인 실패가 대입 공격 기준을 충족"
+    },
+    {
+      "alertId": "bf-02",
+      "action": "block",
+      "confidence": 0.98,
+      "reason": "짧은 시간에 반복된 로그인 실패가 대입 공격 기준을 충족"
+    },
+    {
+      "alertId": "bf-03",
+      "action": "block",
+      "confidence": 0.98,
+      "reason": "짧은 시간에 반복된 로그인 실패가 대입 공격 기준을 충족"
+    },
+    {
+      "alertId": "bf-04",
+      "action": "block",
+      "confidence": 0.98,
+      "reason": "짧은 시간에 반복된 로그인 실패가 대입 공격 기준을 충족"
+    },
+    {
+      "alertId": "bf-05",
+      "action": "block",
+      "confidence": 0.98,
+      "reason": "짧은 시간에 반복된 로그인 실패가 대입 공격 기준을 충족"
+    },
+    {
+      "alertId": "bf-06",
+      "action": "block",
+      "confidence": 0.98,
+      "reason": "짧은 시간에 반복된 로그인 실패가 대입 공격 기준을 충족"
+    },
+    {
+      "alertId": "bf-07",
+      "action": "block",
+      "confidence": 0.98,
+      "reason": "짧은 시간에 반복된 로그인 실패가 대입 공격 기준을 충족"
+    },
+    {
+      "alertId": "bf-08",
+      "action": "block",
+      "confidence": 0.98,
+      "reason": "짧은 시간에 반복된 로그인 실패가 대입 공격 기준을 충족"
+    },
+    {
+      "alertId": "bf-09",
+      "action": "block",
+      "confidence": 0.98,
+      "reason": "짧은 시간에 반복된 로그인 실패가 대입 공격 기준을 충족"
+    },
+    {
+      "alertId": "bf-10",
+      "action": "block",
+      "confidence": 0.98,
+      "reason": "짧은 시간에 반복된 로그인 실패가 대입 공격 기준을 충족"
+    },
+    {
+      "alertId": "bf-11",
+      "action": "alert",
+      "confidence": 0.72,
+      "reason": "로그인 실패가 관찰됐지만 단독 차단 기준에는 부족"
+    },
+    {
+      "alertId": "bf-12",
+      "action": "alert",
+      "confidence": 0.72,
+      "reason": "로그인 실패가 관찰됐지만 단독 차단 기준에는 부족"
+    },
+    {
+      "alertId": "bf-13",
+      "action": "alert",
+      "confidence": 0.72,
+      "reason": "로그인 실패가 관찰됐지만 단독 차단 기준에는 부족"
+    },
+    {
+      "alertId": "bf-14",
+      "action": "alert",
+      "confidence": 0.72,
+      "reason": "로그인 실패가 관찰됐지만 단독 차단 기준에는 부족"
+    },
+    {
+      "alertId": "bf-15",
+      "action": "alert",
+      "confidence": 0.72,
+      "reason": "로그인 실패가 관찰됐지만 단독 차단 기준에는 부족"
+    },
+    {
+      "alertId": "bf-16",
+      "action": "alert",
+      "confidence": 0.72,
+      "reason": "로그인 실패가 관찰됐지만 단독 차단 기준에는 부족"
+    },
+    {
+      "alertId": "bf-17",
+      "action": "alert",
+      "confidence": 0.72,
+      "reason": "로그인 실패가 관찰됐지만 단독 차단 기준에는 부족"
+    },
+    {
+      "alertId": "bf-18",
+      "action": "alert",
+      "confidence": 0.72,
+      "reason": "로그인 실패가 관찰됐지만 단독 차단 기준에는 부족"
+    },
+    {
+      "alertId": "bf-19",
+      "action": "alert",
+      "confidence": 0.72,
+      "reason": "로그인 실패가 관찰됐지만 단독 차단 기준에는 부족"
+    },
+    {
+      "alertId": "bf-20",
+      "action": "record",
+      "confidence": 0.98,
+      "reason": "로그인 대입 공격 표식이 없는 정상 이벤트"
+    },
+    {
+      "alertId": "bf-21",
+      "action": "record",
+      "confidence": 0.98,
+      "reason": "로그인 대입 공격 표식이 없는 정상 이벤트"
+    },
+    {
+      "alertId": "bf-22",
+      "action": "record",
+      "confidence": 0.98,
+      "reason": "로그인 대입 공격 표식이 없는 정상 이벤트"
+    },
+    {
+      "alertId": "bf-23",
+      "action": "record",
+      "confidence": 0.98,
+      "reason": "로그인 대입 공격 표식이 없는 정상 이벤트"
+    },
+    {
+      "alertId": "bf-24",
+      "action": "record",
+      "confidence": 0.98,
+      "reason": "로그인 대입 공격 표식이 없는 정상 이벤트"
+    },
+    {
+      "alertId": "bf-25",
+      "action": "record",
+      "confidence": 0.98,
+      "reason": "로그인 대입 공격 표식이 없는 정상 이벤트"
+    },
+    {
+      "alertId": "bf-26",
+      "action": "record",
+      "confidence": 0.98,
+      "reason": "로그인 대입 공격 표식이 없는 정상 이벤트"
+    },
+    {
+      "alertId": "bf-27",
+      "action": "record",
+      "confidence": 0.98,
+      "reason": "로그인 대입 공격 표식이 없는 정상 이벤트"
+    },
+    {
+      "alertId": "bf-28",
+      "action": "record",
+      "confidence": 0.98,
+      "reason": "로그인 대입 공격 표식이 없는 정상 이벤트"
+    }
+  ],
+  "counts": {
+    "block": 10,
+    "alert": 9,
+    "record": 9
+  }
+}
