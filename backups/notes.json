@@ -2,9 +2,12 @@
   "schema": "aleph.verified-note-backup.v1",
   "version": "stage-9-savepoint",
   "records": [
-    { "id": 1, "owner_key": "judge:b", "title": "과제", "content": "실습용 가상 과제 기록", "content_sha256": "f994fcd388aec8de7c375d8e857b60a25d993d197e5d45e64749a2bffec4faf2" },
-    { "id": 2, "owner_key": "judge:b", "title": "포트폴리오", "content": "실습용 가상 포트폴리오 기록", "content_sha256": "f0510fd932307bcefc629321f310066fe48780876061e4d3b20866a31beb70eb" },
-    { "id": 3, "owner_key": "judge:b", "title": "아침 리추얼", "content": "실습용 가상 리추얼 기록", "content_sha256": "b9b0a13301a823817c125d00bd317a6c5d18590f014a9421bf99f3954ee4fd7e" },
-    { "id": 4, "owner_key": "judge:b", "title": "훈련 행정 자료", "content": "실습용 가상 행정 기록", "content_sha256": "5d960ef1b3eee34a657844e5d4fed14749ac9559bbf29fccd2cca2896aadb219" }
+    {
+      "id": "1",
+      "owner_key": "judge:b",
+      "title": "시험 계정 B 가상 메모",
+      "content": "복구 연습용 가상 메모입니다.",
+      "content_sha256": "b393108c52c9ab9ff42f23e5e90cfd15b2dec75d4fab4f8e790adea0489a5ac7"
+    }
   ]
 }
