@@ -1,4 +1,5 @@
 import { createLoginVerifier } from '../src/verify-login.mjs';
+import { contentHash } from '../src/restore.mjs';
 
 const verifierConfig = {
   judgeIssuer: 'https://aleph-judge-production.up.railway.app/defense/judge',
@@ -60,6 +61,11 @@ export default async function handler(request, response) {
     if (Array.isArray(notes) && notes.length === 0 && request.method !== 'POST') {
       return response.status(404).json({ error: 'Note not found in this resource zone' });
     }
-    return response.status(200).json({ notes: notes.map(({ owner_id: _ownerId, ...note }) => note) });
+    const ownerKey = identity.kind === 'judge' ? `judge:${identity.identity}` : `student:${identity.userId}`;
+    return response.status(200).json({ notes: notes.map(({ owner_id: _ownerId, ...note }) => ({
+      ...note,
+      owner_key: ownerKey,
+      content_sha256: contentHash(note.content),
+    })) });
   } catch { return response.status(502).json({ error: 'Authentication or storage request failed' }); }
 }
