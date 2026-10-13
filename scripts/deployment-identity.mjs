@@ -33,5 +33,9 @@ export function deploymentIdentity(env, config) {
     identity.originalApiUrl = config.originalApiUrl;
     identity.allowedRoutes = config.allowedRoutes;
   }
+  if (config.step >= 10 && typeof config.restoreRoute === 'string'
+      && config.allowedRoutes.includes(config.restoreRoute)) {
+    identity.restoreRoute = config.restoreRoute;
+  }
   return identity;
 }

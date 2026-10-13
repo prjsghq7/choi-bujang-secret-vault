@@ -69,8 +69,45 @@
 - 같은 가명 주체의 GET 조회가 어느 10분 구간에서든 120건을 초과할 때만 `propose_revocation`과 `burst_read` 이유 코드를 제안합니다. 정상 조회와 여러 주체의 합산은 `observe`로 유지합니다.
 - 이 단계는 회수 제안만 만들며 실제 기기 권한 변경이나 회수 API를 임의로 실행하지 않습니다. `npm run detect:test`는 가상 사건 연습입니다.
 
-## 10단계: 검증된 백업에서 한 건만 복구함
-- `backups/verified-policy.json`과 `backups/notes.json`은 침해 전 검증된 가상 사본입니다. 사본이 없거나 형식·내용 해시 검증이 실패하면 복구를 중단합니다.
-- `GET /api/restore`가 검증된 정책 버전과 변경 범위의 계획 토큰을 먼저 만들고, `POST /api/restore`는 그 토큰과 명시적 확인·인증된 주체의 소유자 키·사본의 ID·내용 SHA-256을 모두 대조한 뒤 지정한 한 건만 복구합니다. 계획 확인 없는 POST는 복구하지 않습니다.
-- `aleph.config.json`의 `restoreRoute`와 허용 경로에 복구 경로를 기록했습니다. 실제 운영 정책을 임의로 바꾸지 않으며, 실행 전 복구 계획과 변경 범위를 확인해야 합니다.
-- 복구 후에는 [RESTORE_RETEST_PLAN.md](docs/RESTORE_RETEST_PLAN.md)의 1~9단계 정상·금지 요청 순서로 다시 시험합니다. 현재 기록은 미실행이며, 실행하지 않은 확인은 성공으로 표시하지 않습니다.
+## 10단계: 검증된 사본에서 메모 한 건과 정책을 복구함
+
+### 복구 서비스와 경로
+- 서비스: Vercel 서버 함수 `api/restore.js` · 경로 `GET /api/restore`, `POST /api/restore` (`aleph.config.json`과 배포된 `/aleph.json`의 `restoreRoute`).
+- 인증: `/api/notes`와 같은 로그인 검증기(심판 토큰 또는 학생 Supabase 토큰)를 거칩니다. 토큰이 없거나 틀리면 `401`.
+- 사본 저장소: Supabase Storage의 **비공개** 버킷 `note-backups`. 서버 전용 키로만 읽고 쓰며 브라우저·공개 저장소에는 메모 사본이 없습니다.
+
+### 사본은 언제 만들어지고 어떻게 검증하나
+- `/api/notes`에서 메모를 만들 때(`created`), 처음 조회할 때(`first_read`), 수정·삭제 직전(`before_patch`, `before_delete`)에 그 시점의 ID·소유자·제목·본문·본문 SHA-256을 `notes/<owner_id>/<id>.json`에 저장합니다.
+- 사본은 **덮어쓰지 않습니다**(insert-only). 그래서 변조나 삭제가 일어나도 처음 검증한 침해 전 내용이 남습니다.
+- 복구 직전에 사본을 다시 읽어 `id`, `owner_id`, `sha256(content) == content_sha256`을 모두 확인합니다. 하나라도 다르거나 사본이 없으면 복구를 중단합니다(`404`).
+
+### 메모 한 건 복구: `POST /api/restore`
+- 요청 본문: `{ "id": "<메모 ID>" }`. `content_sha256`을 함께 보내면 사본 해시와 같을 때만 진행합니다(다르면 `409`). `id`를 생략하면 호출자의 사본 가운데 변조·삭제된 메모가 정확히 한 건일 때만 그 메모를 복구합니다.
+- 다른 소유자의 메모 ID는 복구하지 않습니다(`403`/`404`). 지정한 한 건만 되돌리며 다른 메모와 감사 기록은 건드리지 않습니다.
+- 변조된 메모는 사본 내용으로 되돌리고, 삭제된 메모는 같은 ID·소유자로 다시 만듭니다.
+- 성공하면 `200`과 함께 다음을 돌려줍니다.
+  - `restored`(및 같은 값을 최상위에도): `id`, `owner_key`, `owner_id`, `title`, `content`, `content_sha256`
+  - `verification`: `previousState`(`tampered`/`deleted`/`intact`), `idMatch`, `ownerMatch`, `contentHashMatch` — 복구 후 저장소를 다시 읽어 사본과 대조한 값
+  - `auditPreserved`: 복구 감사 기록(본문 제외)을 `audit/`에 새 파일로 덧붙였는지 여부. 기존 감사 기록은 수정·삭제하지 않습니다.
+  - `retest`: 복구 직후 같은 요청 안에서 실제로 실행한 6~9단계 판정 재시험 결과(`executed`, `passed`, `results`)
+
+### 정책 복구: 미리 보기 → 확인
+- `GET /api/restore`는 검증된 정책 사본 `backups/verified-policy.json`(`stage-9-savepoint`)과 현재 판정 규칙의 차이(`plan.changes`), `planToken`, 호출자의 메모 사본 목록과 각 상태를 보여 줍니다. 아무것도 바꾸지 않습니다.
+- 정책 복구는 `POST /api/restore`에 `{ "target": "policy", "confirmed": true, "planToken": "<GET에서 받은 값>" }`을 보낼 때만 진행합니다. 확인이 없으면 `428`. 실제 운영 정책은 바꾸지 않습니다.
+
+### 복구 뒤 1~9단계 재시험 순서
+복구 응답의 `retest`는 서버가 그 자리에서 실행한 결과입니다. 아래 표의 나머지 항목은 사람이 직접 다시 보내야 하는 요청이며, 직접 실행하지 않은 항목은 **미실행**으로 둡니다.
+
+| 순서 | 단계 | 요청 | 기대 결과 | 상태 |
+|---|---|---|---|---|
+| 1 | 1·2 | 비로그인 `GET /data.json`, GitHub 최신 `data.json` | 메모 문장 없음 | 미실행 |
+| 2 | 3·5 | 비로그인 `GET /api/notes`, 원본 Supabase REST 직접 조회 | `401` / 거부 | 미실행 |
+| 3 | 4 | B 토큰으로 복구한 메모 `GET /api/notes?id=` | `200`, 사본과 같은 해시 | 미실행 |
+| 4 | 4·8 | A 토큰으로 B 메모 ID 조회·수정·복구 | `404`/`403` 거부 | 미실행 |
+| 5 | 8 | `GET /api/notes`(ID 없는 목록) | `403` 거부 | 미실행 |
+| 6 | 6 | 등록 기기 / 미등록 기기 판정 | `allow` / `deny` | 복구 응답 `retest`에서 자동 실행 |
+| 7 | 7 | 복합 이상 접속 / 재확인 후 접속 | `step_up` / `allow` | 복구 응답 `retest`에서 자동 실행 |
+| 8 | 8 | 본인 메모 / 다른 구역·목록·공지 수정 판정 | `allow` / `deny` | 복구 응답 `retest`에서 자동 실행 |
+| 9 | 9 | 정상 조회 / 10분 내 121건 이상 GET | `observe` / `propose_revocation` | 복구 응답 `retest`에서 자동 실행 |
+
+로컬 연습: `npm run restore:test`, `npm run decider:test`, `npm run fixture:8`, `npm run detect:test`. 로컬 연습 결과는 심판 판정이 아닙니다.
