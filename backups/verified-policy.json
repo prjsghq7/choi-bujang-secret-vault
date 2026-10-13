@@ -1,0 +1,10 @@
+{
+  "schema": "aleph.verified-backup.v1",
+  "version": "stage-9-savepoint",
+  "verifiedAt": "2026-10-13T00:00:00.000Z",
+  "policy": {
+    "step": 9,
+    "rules": ["device_registered", "step_up_required", "resource_zone", "resource_owner"]
+  },
+  "scope": "virtual-training-only"
+}

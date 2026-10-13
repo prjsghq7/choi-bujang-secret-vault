@@ -1,0 +1,13 @@
+{
+  "schema": "aleph.verified-note-backup.v1",
+  "version": "stage-9-savepoint",
+  "records": [
+    {
+      "id": "1",
+      "owner_key": "judge:b",
+      "title": "시험 계정 B 가상 메모",
+      "content": "복구 연습용 가상 메모입니다.",
+      "content_sha256": "b393108c52c9ab9ff42f23e5e90cfd15b2dec75d4fab4f8e790adea0489a5ac7"
+    }
+  ]
+}
