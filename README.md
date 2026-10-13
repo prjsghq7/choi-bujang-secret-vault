@@ -76,6 +76,11 @@
 - 인증: `/api/notes`와 같은 로그인 검증기(심판 토큰 또는 학생 Supabase 토큰). 토큰이 없거나 틀리면 `401`.
 - 사본 저장소: Supabase Storage의 **비공개** 버킷 `note-backups`. 서버 전용 키로만 읽고 쓰며 브라우저·공개 저장소에는 메모 사본이 없습니다.
 
+### 0. 저장소 사본을 다시 읽어 무결성 기록과 대조
+- `backups/manifest.json`은 침해 전에 검증한 `backups/notes.json`, `backups/verified-policy.json`의 SHA-256(줄바꿈 LF 기준)과 버전 `stage-9-savepoint`를 기록한 무결성 기록입니다.
+- `/api/restore`는 모든 요청에서 먼저 `src/restore.mjs`의 `verifyBackupFiles`로 두 사본을 **디스크에서 다시 읽어** 해시·버전을 대조하고, 실제 복원 직전에 한 번 더 같은 검증을 합니다. 파일이 없거나 해시·버전이 다르면 `412`와 실패 파일 목록을 돌려주고 **복구를 멈춥니다**.
+- 이 저장소 사본(시험 계정 B `owner_key: judge:b`의 가상 메모)은 비공개 저장소에 그 메모의 사본이 없을 때만 검증된 대체 사본으로 씁니다.
+- 로컬 확인: `npm run restore:test` — 정상 사본은 통과, 변조된 사본·무결성 기록이 없는 사본은 중단되는지 확인합니다.
 ### 침해 전 사본과 검증 기준
 - 메모가 `/api/notes`로 **처음 만들어질 때 한 번만** 사본 `notes/<owner_id>/<id>.json`(버전 시각·ID·소유자·제목·본문·본문 SHA-256)을 저장합니다. 이후 수정·삭제·조회는 사본을 만들거나 바꾸지 않습니다.
 - 같은 때에 별도 무결성 기록 `manifests/<owner_id>/<id>.json`에 **사본 파일 바이트의 SHA-256**, 본문 SHA-256, 버전, ID, 소유자를 저장합니다.

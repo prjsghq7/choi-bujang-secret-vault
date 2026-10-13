@@ -1,7 +1,6 @@
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createLoginVerifier } from '../src/verify-login.mjs';
-import { contentHash, planToken, verifiedPolicyDiff } from '../src/restore.mjs';
+import { contentHash, planToken, selectRestoreRecord, verifiedPolicyDiff, verifyBackupFiles } from '../src/restore.mjs';
 import { appendRestoreAudit, listBackupIds, readVerifiedBackup } from '../src/note-backup.mjs';
 import { RULE_IDS } from '../src/decider.mjs';
 import { retestPolicies } from '../src/retest.mjs';
@@ -31,8 +30,15 @@ async function noteState(url, headers, id) {
 
 // Re-reads and verifies the backup, then lists exactly what a restore would change.
 // Returns { status, body } to stop, or { preview } when the backup is verified.
-async function notePreview(url, key, headers, identity, id) {
-  const verified = await readVerifiedBackup(url, key, identity.userId, id);
+async function notePreview(url, key, headers, identity, id, files) {
+  let verified = await readVerifiedBackup(url, key, identity.userId, id);
+  if (!verified.ok && verified.reason === 'backup_missing') {
+    // Fallback: the committed pre-breach snapshot, already re-read and hash-verified against backups/manifest.json.
+    const record = files.notes.records.find(item => String(item.id) === id && item.owner_key === ownerKey(identity));
+    const selected = record && selectRestoreRecord(files.notes, id, ownerKey(identity), record.content_sha256);
+    if (selected) verified = { ok: true, backup: { ...selected, version: files.version },
+      manifest: { backup_sha256: files.files['notes.json'] }, checks: { manifestFileHash: true, id: true, owner: true, contentHash: true } };
+  }
   if (!verified.ok) return { status: verified.reason === 'backup_missing' ? 404 : 412, body: { error: 'Verified backup check failed; restore stopped', reason: verified.reason, failed: verified.failed ?? [] } };
   const { backup, manifest } = verified;
   const current = await noteState(url, headers, id);
@@ -63,10 +69,13 @@ export default async function handler(request, response) {
     const identity = await verify(authorization);
     if (!identity) return response.status(401).json({ error: 'Invalid authentication token' });
     const headers = { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json', Prefer: 'return=representation' };
-    const policy = JSON.parse(readFileSync(join(process.cwd(), 'backups', 'verified-policy.json'), 'utf8'));
+    // Step 0: re-read the committed backups and verify them against backups/manifest.json. Stop on any failure.
+    const files = verifyBackupFiles(join(process.cwd(), 'backups'));
+    if (!files.ok) return response.status(412).json({ error: 'Backup verification failed; restore stopped', reason: files.reason, failed: files.failed });
+    const policy = files.policy;
     const policyDiff = verifiedPolicyDiff(policy, { step: policy.policy.step, rules: [...RULE_IDS].filter(rule => policy.policy.rules.includes(rule)) });
     if (!policyDiff.ok) return response.status(412).json({ error: 'Backup policy verification failed; restore stopped' });
-    const plan = { backupVersion: policy.version, scope: 'single_note', changes: policyDiff.changes };
+    const plan = { backupVersion: policy.version, backupFiles: files.files, scope: 'single_note', changes: policyDiff.changes };
     const body = request.body && typeof request.body === 'object' ? request.body : {};
     const id = requestedId(request, body);
     if (id !== null && !/^[0-9]+$/.test(id)) return response.status(400).json({ error: 'A numeric note id is required' });
@@ -74,13 +83,13 @@ export default async function handler(request, response) {
     if (request.method === 'GET') {
       // Preview only: nothing is changed.
       if (id !== null) {
-        const result = await notePreview(url, key, headers, identity, id);
+        const result = await notePreview(url, key, headers, identity, id, files);
         if (!result.preview) return response.status(result.status).json(result.body);
         return response.status(200).json({ preview: result.preview, planToken: result.planToken });
       }
       const notes = [];
       for (const backupId of await listBackupIds(url, key, identity.userId)) {
-        const result = await notePreview(url, key, headers, identity, backupId);
+        const result = await notePreview(url, key, headers, identity, backupId, files);
         if (result.preview) notes.push({ id: backupId, state: result.preview.state, changes: result.preview.changes });
       }
       return response.status(200).json({ plan, planToken: planToken(plan), owner_key: ownerKey(identity), notes });
@@ -97,7 +106,7 @@ export default async function handler(request, response) {
       const check = await readVerifiedBackup(url, key, identity.userId, id);
       if (check.ok && body.content_sha256 !== check.backup.content_sha256) return response.status(409).json({ error: 'Requested content hash does not match the verified backup' });
     }
-    const first = await notePreview(url, key, headers, identity, id);
+    const first = await notePreview(url, key, headers, identity, id, files);
     if (!first.preview) return response.status(first.status).json(first.body);
     // Step 1: show the version and the fields that will change. No write without confirmation.
     if (body.confirmed !== true || body.planToken !== first.planToken) {
@@ -105,7 +114,9 @@ export default async function handler(request, response) {
     }
 
     // Step 2: re-read and re-verify the backup immediately before writing; stop if anything changed.
-    const recheck = await notePreview(url, key, headers, identity, id);
+    const filesAgain = verifyBackupFiles(join(process.cwd(), 'backups'));
+    if (!filesAgain.ok) return response.status(412).json({ error: 'Backup verification failed; restore stopped', reason: filesAgain.reason, failed: filesAgain.failed });
+    const recheck = await notePreview(url, key, headers, identity, id, filesAgain);
     if (!recheck.preview) return response.status(recheck.status).json(recheck.body);
     if (recheck.planToken !== body.planToken) return response.status(409).json({ error: 'Backup or note changed after the preview; restore stopped', preview: recheck.preview, planToken: recheck.planToken });
     const { backup, preview } = recheck;

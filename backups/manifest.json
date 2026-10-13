@@ -1,0 +1,10 @@
+{
+  "schema": "aleph.backup-manifest.v1",
+  "version": "stage-9-savepoint",
+  "verifiedAt": "2026-10-13T00:00:00.000Z",
+  "algorithm": "sha256 (LF-normalized file bytes)",
+  "files": {
+    "notes.json": "7b4932b4c228a23197326609f151a41f121d2399d13ed139c21888fb4b61bcb9",
+    "verified-policy.json": "a3e66b0946361364759b85cbb32affe756710669c90d93390b79772e125d17e1"
+  }
+}
