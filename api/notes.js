@@ -29,7 +29,13 @@ export default async function handler(request, response) {
     const body = request.body && typeof request.body === 'object' ? request.body : {};
     let endpoint = url + '/rest/v1/notes';
     let payload;
-    if (request.method === 'GET') endpoint += `?select=id,title,content,created_at&owner_id=eq.${ownerId}&order=id`;
+    if (request.method === 'GET') {
+      const requestedId = new URL(request.url, 'https://local.invalid').searchParams.get('id');
+      if (requestedId !== null && !/^[0-9]+$/.test(requestedId)) return response.status(400).json({ error: 'A numeric note id is required' });
+      endpoint += requestedId === null
+        ? `?select=id,title,content,created_at&owner_id=eq.${ownerId}&order=id`
+        : `?select=id,title,content,created_at&id=eq.${encodeURIComponent(requestedId)}&owner_id=eq.${ownerId}`;
+    }
     else if (request.method === 'POST') {
       payload = notePayload(body);
       if (!payload.title || !payload.content) return response.status(400).json({ error: 'Title and content are required' });
@@ -46,6 +52,9 @@ export default async function handler(request, response) {
     const upstream = await fetch(endpoint, { method: request.method, headers, body: payload ? JSON.stringify(payload) : undefined });
     if (!upstream.ok) return response.status(502).json({ error: 'Storage request failed' });
     const notes = await upstream.json();
+    if (Array.isArray(notes) && notes.length === 0 && request.method !== 'POST') {
+      return response.status(404).json({ error: 'Note not found in this resource zone' });
+    }
     return response.status(200).json({ notes });
   } catch { return response.status(502).json({ error: 'Authentication or storage request failed' }); }
 }

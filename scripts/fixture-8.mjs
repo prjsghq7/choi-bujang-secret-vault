@@ -19,7 +19,7 @@ export function fixtureRequests8() {
     own: request(),
     otherRead: request({ path: '/notes/other', route: 'GET /notes/:id' }),
     otherUpdate: request({ method: 'PATCH', path: '/notes/other', route: 'PATCH /notes/:id' }),
-    otherList: request({ path: '/notes/other', route: 'GET /notes/:id' }),
+    otherList: request({ path: '/notes', route: 'GET /notes' }),
     teacherNotice: request({ method: 'PATCH', service: 'notices', path: '/notices/class', route: 'PATCH /notices/:id' }),
   };
 }

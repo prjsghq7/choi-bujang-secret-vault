@@ -6,7 +6,6 @@ export const RULE_IDS = Object.freeze([
 ]);
 
 const ROUTE_RULES = new Map([
-  ['GET /notes', 'GET'],
   ['GET /notes/:id', 'GET'],
   ['POST /notes', 'POST'],
   ['PATCH /notes/:id', 'PATCH'],
@@ -19,7 +18,7 @@ function resourceAllowed(request) {
       || /(?:^|\/)(?:other|foreign|teacher|notice|notices|class|admin|all)(?:$|\/)/iu.test(request.path)) {
     return false;
   }
-  const collection = request.route === 'GET /notes' || request.route === 'POST /notes';
+  const collection = request.route === 'POST /notes';
   return (collection ? /^\/notes\/?$/u : /^\/notes\/[A-Za-z0-9_-]+$/u).test(request.path);
 }
 
