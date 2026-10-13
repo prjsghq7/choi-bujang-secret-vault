@@ -37,8 +37,20 @@ export default async function handler(request, response) {
     const record = selectRestoreRecord(snapshot, body.id, ownerKey(identity), body.content_sha256);
     if (!record) return response.status(403).json({ error: 'Backup target verification failed' });
     const headers = { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json', Prefer: 'return=representation,resolution=merge-duplicates' };
-    const upstream = await fetch(url + '/rest/v1/notes', { method: 'POST', headers, body: JSON.stringify({ id: record.id, owner_id: identity.userId, title: record.title, content: record.content }) });
+    const upstream = await fetch(url + '/rest/v1/notes?select=id,owner_id,title,content', { method: 'POST', headers, body: JSON.stringify({ id: record.id, owner_id: identity.userId, title: record.title, content: record.content }) });
     if (!upstream.ok) return response.status(502).json({ error: 'Restore storage request failed' });
-    return response.status(200).json({ restored: { id: record.id, owner_id: identity.userId, owner_key: record.owner_key, content_sha256: record.content_sha256 } });
+    const rows = await upstream.json();
+    const restored = Array.isArray(rows) ? rows[0] : null;
+    if (!restored || String(restored.id) !== String(record.id) || restored.owner_id !== identity.userId || restored.content !== record.content) {
+      return response.status(502).json({ error: 'Restore storage verification failed' });
+    }
+    const result = {
+      id: record.id,
+      owner_key: record.owner_key,
+      owner_id: restored.owner_id,
+      content: restored.content,
+      content_sha256: record.content_sha256,
+    };
+    return response.status(200).json({ restored: result, ...result });
   } catch { return response.status(502).json({ error: 'Restore verification failed' }); }
 }
