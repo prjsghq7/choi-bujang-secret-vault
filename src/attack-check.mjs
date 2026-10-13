@@ -1,7 +1,9 @@
 // The student changes this check as each stage adds an attack to the same app.
 // Never return tokens, private keys, real names, or note bodies.
 export async function runAttackChecks(config) {
-  if (config.step !== 5) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  if (config.step !== 5 && config.step !== 6) {
+    throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  }
   let app;
   try {
     app = new URL(config.publicAppUrl);
@@ -11,6 +13,25 @@ export async function runAttackChecks(config) {
   if (app.protocol !== 'https:' || app.username || app.password || app.search || app.hash
       || app.pathname !== '/' || app.hostname.endsWith('.example')) {
     throw new Error('aleph.config.json의 실제 배포 주소를 먼저 넣어 주세요.');
+  }
+  if (config.step === 6) {
+    const rootResponse = await fetch(app, { redirect: 'error', signal: AbortSignal.timeout(10000) });
+    const apiResponse = await fetch(new URL('/api/notes', app), {
+      redirect: 'error', signal: AbortSignal.timeout(10000),
+    });
+    let apiError = false;
+    try {
+      const data = await apiResponse.json();
+      apiError = !apiResponse.ok && typeof data?.error === 'string';
+    } catch {
+      // A non-JSON response is a failed check, not a successful deployment.
+    }
+    return [
+      { attackId: 'registered_device_surface', expected: '등록 기기에서 기존 자료실 화면이 열림',
+        observed: rootResponse.ok ? `자료실 화면이 열림 (HTTP ${rootResponse.status})` : `자료실 화면 오류 (HTTP ${rootResponse.status})` },
+      { attackId: 'anonymous_notes_api', expected: '비로그인 자료 API 요청이 JSON 401 또는 403으로 차단됨',
+        observed: apiError ? `비로그인 자료 API가 JSON 오류로 차단됨 (HTTP ${apiResponse.status})` : `비로그인 자료 API 차단 확인 실패 (HTTP ${apiResponse.status})` },
+    ];
   }
   const response = await fetch(new URL('/api/notes', app), {
     redirect: 'error', signal: AbortSignal.timeout(10000),
