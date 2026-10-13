@@ -20,7 +20,7 @@ export function planToken(plan) {
 }
 
 export function selectRestoreRecord(snapshot, id, ownerKey, expectedHash) {
-  const record = snapshot?.records?.find((item) => item?.id === id);
+  const record = snapshot?.records?.find((item) => String(item?.id) === String(id));
   if (!record || record.owner_key !== ownerKey || record.content_sha256 !== expectedHash
       || contentHash(record.content) !== record.content_sha256) return null;
   return { id: record.id, owner_key: record.owner_key, title: record.title, content: record.content,

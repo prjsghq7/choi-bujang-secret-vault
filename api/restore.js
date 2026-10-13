@@ -39,6 +39,6 @@ export default async function handler(request, response) {
     const headers = { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json', Prefer: 'return=representation,resolution=merge-duplicates' };
     const upstream = await fetch(url + '/rest/v1/notes', { method: 'POST', headers, body: JSON.stringify({ id: record.id, owner_id: identity.userId, title: record.title, content: record.content }) });
     if (!upstream.ok) return response.status(502).json({ error: 'Restore storage request failed' });
-    return response.status(200).json({ restored: { id: record.id, owner_key: record.owner_key, content_sha256: record.content_sha256 } });
+    return response.status(200).json({ restored: { id: record.id, owner_id: identity.userId, content_sha256: record.content_sha256 } });
   } catch { return response.status(502).json({ error: 'Restore verification failed' }); }
 }
