@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createLoginVerifier } from '../src/verify-login.mjs';
-import { selectRestoreRecord } from '../src/restore.mjs';
+import { planToken, selectRestoreRecord, verifiedPolicyDiff } from '../src/restore.mjs';
 
 const verifierConfig = {
   judgeIssuer: 'https://aleph-judge-production.up.railway.app/defense/judge',
@@ -14,7 +14,7 @@ function ownerKey(identity) {
 }
 
 export default async function handler(request, response) {
-  if (request.method !== 'POST') { response.setHeader('Allow', 'POST'); return response.status(405).json({ error: 'Method not allowed' }); }
+  if (!['GET', 'POST'].includes(request.method)) { response.setHeader('Allow', 'GET, POST'); return response.status(405).json({ error: 'Method not allowed' }); }
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SECRET_KEY;
   if (!url || !key) return response.status(500).json({ error: 'Server storage is not configured' });
@@ -25,7 +25,14 @@ export default async function handler(request, response) {
     const identity = await verify(authorization);
     if (!identity) return response.status(401).json({ error: 'Invalid authentication token' });
     const snapshot = JSON.parse(readFileSync(join(process.cwd(), 'backups', 'notes.json'), 'utf8'));
+    const policy = JSON.parse(readFileSync(join(process.cwd(), 'backups', 'verified-policy.json'), 'utf8'));
+    const currentPolicy = { step: 10, rules: ['device_registered', 'step_up_required', 'resource_zone', 'resource_owner'] };
+    const policyDiff = verifiedPolicyDiff(policy, currentPolicy);
+    if (!policyDiff.ok) return response.status(412).json({ error: 'Backup policy verification failed' });
+    const plan = { backupVersion: policy.version, scope: 'single_note', changes: policyDiff.changes };
+    if (request.method === 'GET') return response.status(200).json({ plan, planToken: planToken(plan), noteCount: snapshot.records.length });
     const body = request.body && typeof request.body === 'object' ? request.body : {};
+    if (body.confirmed !== true || body.planToken !== planToken(plan)) return response.status(428).json({ error: 'Verified restore plan confirmation is required', plan });
     if (typeof body.id !== 'string' || typeof body.content_sha256 !== 'string') return response.status(400).json({ error: 'Restore id and content hash are required' });
     const record = selectRestoreRecord(snapshot, body.id, ownerKey(identity), body.content_sha256);
     if (!record) return response.status(403).json({ error: 'Backup target verification failed' });

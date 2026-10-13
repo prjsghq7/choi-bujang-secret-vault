@@ -15,6 +15,10 @@ export function verifiedPolicyDiff(backup, current) {
   return { ok: true, from: before, to: after, changes };
 }
 
+export function planToken(plan) {
+  return createHash('sha256').update(JSON.stringify(plan), 'utf8').digest('hex');
+}
+
 export function selectRestoreRecord(snapshot, id, ownerKey, expectedHash) {
   const record = snapshot?.records?.find((item) => item?.id === id);
   if (!record || record.owner_key !== ownerKey || record.content_sha256 !== expectedHash
