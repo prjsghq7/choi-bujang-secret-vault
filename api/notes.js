@@ -35,8 +35,8 @@ export default async function handler(request, response) {
       const requestedId = query.get('id');
       if (requestedId !== null && !/^[0-9]+$/.test(requestedId)) return response.status(400).json({ error: 'A numeric note id is required' });
       endpoint += requestedId === null
-        ? `?select=id,title,content,created_at&owner_id=eq.${ownerId}&order=id`
-        : `?select=id,title,content,created_at&id=eq.${encodeURIComponent(requestedId)}&owner_id=eq.${ownerId}`;
+        ? `?select=id,title,content,created_at,owner_id&owner_id=eq.${ownerId}&order=id`
+        : `?select=id,title,content,created_at,owner_id&id=eq.${encodeURIComponent(requestedId)}&owner_id=eq.${ownerId}`;
     }
     else if (request.method === 'POST') {
       payload = notePayload(body);
@@ -54,9 +54,13 @@ export default async function handler(request, response) {
     const upstream = await fetch(endpoint, { method: request.method, headers, body: payload ? JSON.stringify(payload) : undefined });
     if (!upstream.ok) return response.status(502).json({ error: 'Storage request failed' });
     const notes = await upstream.json();
+    if (!Array.isArray(notes)) return response.status(502).json({ error: 'Storage response was invalid' });
+    if (notes.some(note => note?.owner_id !== identity.userId)) {
+      return response.status(403).json({ error: 'Resource owner mismatch' });
+    }
     if (Array.isArray(notes) && notes.length === 0 && request.method !== 'POST') {
       return response.status(404).json({ error: 'Note not found in this resource zone' });
     }
-    return response.status(200).json({ notes });
+    return response.status(200).json({ notes: notes.map(({ owner_id: _ownerId, ...note }) => note) });
   } catch { return response.status(502).json({ error: 'Authentication or storage request failed' }); }
 }
