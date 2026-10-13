@@ -14,7 +14,7 @@ export async function runAttackChecks(config) {
       || app.pathname !== '/' || app.hostname.endsWith('.example')) {
     throw new Error('aleph.config.json의 실제 배포 주소를 먼저 넣어 주세요.');
   }
-  if (config.step === 6) {
+  if (config.step >= 6) {
     const rootResponse = await fetch(app, { redirect: 'error', signal: AbortSignal.timeout(10000) });
     const apiResponse = await fetch(new URL('/api/notes', app), {
       redirect: 'error', signal: AbortSignal.timeout(10000),
