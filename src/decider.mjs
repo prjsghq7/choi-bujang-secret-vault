@@ -19,7 +19,7 @@ function resourceAllowed(request) {
     return false;
   }
   const collection = request.route === 'POST /notes';
-  return (collection ? /^\/notes\/?$/u : /^\/notes\/[0-9]+$/u).test(request.path);
+  return (collection ? /^\/notes\/?$/u : /^\/notes\/[A-Za-z0-9_-]+$/u).test(request.path);
 }
 
 function isCompositeRisk(request) {
