@@ -51,10 +51,6 @@ export default async function handler(request, response) {
         payload = notePayload(body);
         if (!Object.keys(payload).length) return response.status(400).json({ error: 'A title or content is required' });
       }
-      // Keep the pre-change version in the private backup before any edit or deletion.
-      const current = await fetch(url + `/rest/v1/notes?select=id,owner_id,title,content&id=eq.${encodeURIComponent(id)}&owner_id=eq.${ownerId}`, { headers });
-      const rows = current.ok ? await current.json() : [];
-      if (Array.isArray(rows) && rows[0]?.owner_id === identity.userId) await captureNoteBackup(url, key, rows[0], 'before_' + request.method.toLowerCase());
     }
     const upstream = await fetch(endpoint, { method: request.method, headers, body: payload ? JSON.stringify(payload) : undefined });
     if (!upstream.ok) return response.status(502).json({ error: 'Storage request failed' });
@@ -63,9 +59,8 @@ export default async function handler(request, response) {
     if (notes.some(note => note?.owner_id !== identity.userId)) {
       return response.status(403).json({ error: 'Resource owner mismatch' });
     }
-    if (request.method === 'GET' || request.method === 'POST') {
-      await Promise.all(notes.map(note => captureNoteBackup(url, key, note, request.method === 'POST' ? 'created' : 'first_read')));
-    }
+    // The verified backup is taken once, at creation; later edits never replace it.
+    if (request.method === 'POST') await Promise.all(notes.map(note => captureNoteBackup(url, key, note)));
     if (Array.isArray(notes) && notes.length === 0 && request.method !== 'POST') {
       return response.status(404).json({ error: 'Note not found in this resource zone' });
     }

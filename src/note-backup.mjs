@@ -1,17 +1,18 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { contentHash } from './restore.mjs';
 
 // Private Supabase Storage bucket. Only the server secret key can read or write it.
 export const BACKUP_BUCKET = 'note-backups';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+const sha256 = text => createHash('sha256').update(text, 'utf8').digest('hex');
 
 function storageHeaders(key, extra = {}) {
   return { apikey: key, Authorization: 'Bearer ' + key, ...extra };
 }
 
-function backupPath(ownerId, noteId) {
+function paths(ownerId, noteId) {
   if (!UUID.test(String(ownerId)) || !/^[0-9]+$/u.test(String(noteId))) return null;
-  return `notes/${ownerId}/${noteId}.json`;
+  return { backup: `notes/${ownerId}/${noteId}.json`, manifest: `manifests/${ownerId}/${noteId}.json` };
 }
 
 async function ensureBucket(url, key) {
@@ -22,47 +23,74 @@ async function ensureBucket(url, key) {
   return response.ok || response.status === 400 || response.status === 409;
 }
 
-async function upload(url, key, path, value) {
-  return fetch(`${url}/storage/v1/object/${BACKUP_BUCKET}/${path}`, {
-    method: 'POST',
+// x-upsert:false — an existing object is never overwritten.
+async function uploadOnce(url, key, path, text) {
+  const send = () => fetch(`${url}/storage/v1/object/${BACKUP_BUCKET}/${path}`, {
+    method: 'POST', body: text,
     headers: storageHeaders(key, { 'Content-Type': 'application/json', 'x-upsert': 'false' }),
-    body: JSON.stringify(value),
   });
+  let response = await send();
+  if (response.ok) return 'created';
+  let message = await response.text();
+  if (/bucket/iu.test(message) && /not.?found/iu.test(message) && await ensureBucket(url, key)) {
+    response = await send();
+    if (response.ok) return 'created';
+    message = await response.text();
+  }
+  return /duplicate|already exists|409/iu.test(message) ? 'exists' : 'failed';
 }
 
-// Insert-only: the first verified copy of a note is never overwritten, so a later
-// tampering or deletion cannot replace the pre-breach version.
-export async function captureNoteBackup(url, key, note, source) {
-  const path = backupPath(note?.owner_id, note?.id);
-  if (!path || typeof note.content !== 'string' || typeof note.title !== 'string') return false;
-  const record = {
-    schema: 'aleph.note-backup.v1', id: String(note.id), owner_id: note.owner_id,
+async function download(url, key, path) {
+  const response = await fetch(`${url}/storage/v1/object/authenticated/${BACKUP_BUCKET}/${path}`,
+    { headers: storageHeaders(key), cache: 'no-store' });
+  return response.ok ? response.text() : null;
+}
+
+// Called only when a note is created, so the copy is the verified pre-breach version.
+// A separate manifest records the SHA-256 of the exact backup bytes for later re-verification.
+export async function captureNoteBackup(url, key, note) {
+  const target = paths(note?.owner_id, note?.id);
+  if (!target || typeof note.content !== 'string' || typeof note.title !== 'string') return false;
+  const version = new Date().toISOString();
+  const backupText = JSON.stringify({
+    schema: 'aleph.note-backup.v1', version, id: String(note.id), owner_id: note.owner_id,
     title: note.title, content: note.content, content_sha256: contentHash(note.content),
-    captured_at: new Date().toISOString(), source,
-  };
+  });
   try {
-    let response = await upload(url, key, path, record);
-    if (response.ok) return true;
-    let text = await response.text();
-    if (/bucket/iu.test(text) && /not.?found/iu.test(text)) {
-      if (!await ensureBucket(url, key)) return false;
-      response = await upload(url, key, path, record);
-      if (response.ok) return true;
-      text = await response.text();
-    }
-    return /duplicate|already exists|409/iu.test(text);
+    const stored = await uploadOnce(url, key, target.backup, backupText);
+    if (stored !== 'created') return stored === 'exists';
+    const manifest = JSON.stringify({
+      schema: 'aleph.note-backup-manifest.v1', version, id: String(note.id), owner_id: note.owner_id,
+      backup_sha256: sha256(backupText), content_sha256: contentHash(note.content),
+    });
+    return await uploadOnce(url, key, target.manifest, manifest) === 'created';
   } catch { return false; }
 }
 
-export async function readNoteBackup(url, key, ownerId, noteId) {
-  const path = backupPath(ownerId, noteId);
-  if (!path) return null;
-  try {
-    const response = await fetch(`${url}/storage/v1/object/authenticated/${BACKUP_BUCKET}/${path}`,
-      { headers: storageHeaders(key) });
-    if (!response.ok) return null;
-    return await response.json();
-  } catch { return null; }
+// Re-reads the backup and its manifest from storage and verifies them. Any failure stops the restore.
+export async function readVerifiedBackup(url, key, ownerId, noteId) {
+  const target = paths(ownerId, noteId);
+  if (!target) return { ok: false, reason: 'invalid_target' };
+  const [backupText, manifestText] = await Promise.all([
+    download(url, key, target.backup), download(url, key, target.manifest),
+  ]);
+  if (backupText === null || manifestText === null) return { ok: false, reason: 'backup_missing' };
+  let backup, manifest;
+  try { backup = JSON.parse(backupText); manifest = JSON.parse(manifestText); } catch { return { ok: false, reason: 'backup_unreadable' }; }
+  const checks = {
+    manifestSchema: manifest?.schema === 'aleph.note-backup-manifest.v1',
+    backupSchema: backup?.schema === 'aleph.note-backup.v1',
+    backupFileHash: sha256(backupText) === manifest?.backup_sha256,
+    version: typeof backup?.version === 'string' && backup.version === manifest?.version,
+    id: String(backup?.id) === String(noteId) && String(manifest?.id) === String(noteId),
+    owner: backup?.owner_id === ownerId && manifest?.owner_id === ownerId,
+    contentHash: typeof backup?.content === 'string' && typeof backup?.title === 'string'
+      && contentHash(backup.content) === backup.content_sha256
+      && backup.content_sha256 === manifest?.content_sha256,
+  };
+  const failed = Object.keys(checks).filter(name => !checks[name]);
+  if (failed.length) return { ok: false, reason: 'backup_verification_failed', failed };
+  return { ok: true, backup, manifest, checks };
 }
 
 export async function listBackupIds(url, key, ownerId) {
@@ -70,7 +98,7 @@ export async function listBackupIds(url, key, ownerId) {
   try {
     const response = await fetch(`${url}/storage/v1/object/list/${BACKUP_BUCKET}`, {
       method: 'POST', headers: storageHeaders(key, { 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ prefix: `notes/${ownerId}/`, limit: 50, offset: 0 }),
+      body: JSON.stringify({ prefix: `manifests/${ownerId}/`, limit: 50, offset: 0 }),
     });
     if (!response.ok) return [];
     const items = await response.json();
@@ -79,21 +107,10 @@ export async function listBackupIds(url, key, ownerId) {
   } catch { return []; }
 }
 
-// A verified backup must match its own owner, id and SHA-256 before it can be restored.
-export function verifyNoteBackup(backup, ownerId, noteId) {
-  return Boolean(backup && backup.schema === 'aleph.note-backup.v1'
-    && String(backup.id) === String(noteId) && backup.owner_id === ownerId
-    && typeof backup.content === 'string' && typeof backup.title === 'string'
-    && backup.content_sha256 === contentHash(backup.content));
-}
-
 // Audit entries are appended under a new name and never edited or deleted. No note body is stored.
 export async function appendRestoreAudit(url, key, entry) {
   const name = `audit/${new Date().toISOString().replace(/[:.]/gu, '-')}-${randomUUID()}.json`;
   try {
-    const record = { schema: 'aleph.restore-audit.v1', ...entry };
-    let response = await upload(url, key, name, record);
-    if (!response.ok && await ensureBucket(url, key)) response = await upload(url, key, name, record);
-    return response.ok;
+    return await uploadOnce(url, key, name, JSON.stringify({ schema: 'aleph.restore-audit.v1', ...entry })) === 'created';
   } catch { return false; }
 }

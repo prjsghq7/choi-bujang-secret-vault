@@ -73,30 +73,33 @@
 
 ### 복구 서비스와 경로
 - 서비스: Vercel 서버 함수 `api/restore.js` · 경로 `GET /api/restore`, `POST /api/restore` (`aleph.config.json`과 배포된 `/aleph.json`의 `restoreRoute`).
-- 인증: `/api/notes`와 같은 로그인 검증기(심판 토큰 또는 학생 Supabase 토큰)를 거칩니다. 토큰이 없거나 틀리면 `401`.
+- 인증: `/api/notes`와 같은 로그인 검증기(심판 토큰 또는 학생 Supabase 토큰). 토큰이 없거나 틀리면 `401`.
 - 사본 저장소: Supabase Storage의 **비공개** 버킷 `note-backups`. 서버 전용 키로만 읽고 쓰며 브라우저·공개 저장소에는 메모 사본이 없습니다.
 
-### 사본은 언제 만들어지고 어떻게 검증하나
-- `/api/notes`에서 메모를 만들 때(`created`), 처음 조회할 때(`first_read`), 수정·삭제 직전(`before_patch`, `before_delete`)에 그 시점의 ID·소유자·제목·본문·본문 SHA-256을 `notes/<owner_id>/<id>.json`에 저장합니다.
-- 사본은 **덮어쓰지 않습니다**(insert-only). 그래서 변조나 삭제가 일어나도 처음 검증한 침해 전 내용이 남습니다.
-- 복구 직전에 사본을 다시 읽어 `id`, `owner_id`, `sha256(content) == content_sha256`을 모두 확인합니다. 하나라도 다르거나 사본이 없으면 복구를 중단합니다(`404`).
+### 침해 전 사본과 검증 기준
+- 메모가 `/api/notes`로 **처음 만들어질 때 한 번만** 사본 `notes/<owner_id>/<id>.json`(버전 시각·ID·소유자·제목·본문·본문 SHA-256)을 저장합니다. 이후 수정·삭제·조회는 사본을 만들거나 바꾸지 않습니다.
+- 같은 때에 별도 무결성 기록 `manifests/<owner_id>/<id>.json`에 **사본 파일 바이트의 SHA-256**, 본문 SHA-256, 버전, ID, 소유자를 저장합니다.
+- 두 파일 모두 덮어쓰기 금지(`x-upsert: false`)로 저장해 변조·삭제 뒤에도 침해 전 내용과 기준값이 남습니다.
 
-### 메모 한 건 복구: `POST /api/restore`
-- 요청 본문: `{ "id": "<메모 ID>" }`. `content_sha256`을 함께 보내면 사본 해시와 같을 때만 진행합니다(다르면 `409`). `id`를 생략하면 호출자의 사본 가운데 변조·삭제된 메모가 정확히 한 건일 때만 그 메모를 복구합니다.
-- 다른 소유자의 메모 ID는 복구하지 않습니다(`403`/`404`). 지정한 한 건만 되돌리며 다른 메모와 감사 기록은 건드리지 않습니다.
-- 변조된 메모는 사본 내용으로 되돌리고, 삭제된 메모는 같은 ID·소유자로 다시 만듭니다.
-- 성공하면 `200`과 함께 다음을 돌려줍니다.
-  - `restored`(및 같은 값을 최상위에도): `id`, `owner_key`, `owner_id`, `title`, `content`, `content_sha256`
-  - `verification`: `previousState`(`tampered`/`deleted`/`intact`), `idMatch`, `ownerMatch`, `contentHashMatch` — 복구 후 저장소를 다시 읽어 사본과 대조한 값
-  - `auditPreserved`: 복구 감사 기록(본문 제외)을 `audit/`에 새 파일로 덧붙였는지 여부. 기존 감사 기록은 수정·삭제하지 않습니다.
-  - `retest`: 복구 직후 같은 요청 안에서 실제로 실행한 6~9단계 판정 재시험 결과(`executed`, `passed`, `results`)
+### 복구 전에 사본을 다시 읽어 검증
+`src/note-backup.mjs`의 `readVerifiedBackup`이 복구 직전에 저장소에서 사본과 무결성 기록을 **다시 읽고** 다음을 모두 확인합니다.
+`manifestSchema`, `backupSchema`, `backupFileHash`(사본 바이트 SHA-256 = 기록값), `version`, `id`, `owner`, `contentHash`(본문 SHA-256 = 사본값 = 기록값).
+- 사본이나 기록이 없으면 `404`, 하나라도 맞지 않으면 `412`와 실패 항목(`failed`)을 돌려주고 **복구를 멈춥니다**. 이때 메모에는 아무것도 쓰지 않습니다.
+
+### 메모 한 건 복구: 미리 보기 → 확인 → 재검증 → 복원
+1. `GET /api/restore?id=<메모 ID>` 또는 확인 없는 `POST /api/restore {"id": "<메모 ID>"}`: 사본을 검증한 뒤 `preview`(사본 버전 `backupVersion`, 현재 상태 `tampered`/`deleted`/`intact`, 바뀔 항목 `changes`, 검증 결과 `backupChecks`)와 `planToken`만 돌려줍니다(`200`/`428`). **아무것도 바꾸지 않습니다.**
+2. `POST /api/restore {"id": "<메모 ID>", "confirmed": true, "planToken": "<1에서 받은 값>"}`: 사본을 **한 번 더 다시 읽어 검증**하고, 미리 본 뒤 사본이나 메모가 바뀌었으면 `409`로 멈춥니다.
+3. 검증이 통과하면 그 한 건만 되돌립니다. 변조된 메모는 사본 제목·본문으로, 삭제된 메모는 같은 ID·소유자로 다시 만듭니다. 다른 메모, 다른 소유자의 자료(`403`/`404`), 감사 기록은 건드리지 않습니다.
+4. 복원 뒤 저장소를 다시 읽어 `idMatch`, `ownerMatch`, `contentHashMatch`를 확인합니다. 하나라도 틀리면 `502`.
+- 성공 응답(`200`): `restored`(`id`, `owner_key`, `owner_id`, `title`, `content`, `content_sha256`), `changes`, `verification`, `auditPreserved`(본문 없는 감사 기록을 `audit/`에 새 파일로 덧붙였는지), `retest`(복구 직후 같은 요청에서 실제 실행한 6~9단계 판정 재시험 결과).
 
 ### 정책 복구: 미리 보기 → 확인
-- `GET /api/restore`는 검증된 정책 사본 `backups/verified-policy.json`(`stage-9-savepoint`)과 현재 판정 규칙의 차이(`plan.changes`), `planToken`, 호출자의 메모 사본 목록과 각 상태를 보여 줍니다. 아무것도 바꾸지 않습니다.
-- 정책 복구는 `POST /api/restore`에 `{ "target": "policy", "confirmed": true, "planToken": "<GET에서 받은 값>" }`을 보낼 때만 진행합니다. 확인이 없으면 `428`. 실제 운영 정책은 바꾸지 않습니다.
+- `GET /api/restore`는 검증된 정책 사본 `backups/verified-policy.json`(`stage-9-savepoint`)과 현재 판정 규칙의 차이(`plan.changes`), `planToken`, 호출자 메모 사본의 상태를 보여 줍니다. 아무것도 바꾸지 않습니다.
+- 정책 사본 형식·버전·범위 검증이 실패하면 `412`로 멈춥니다.
+- `POST /api/restore {"target": "policy", "confirmed": true, "planToken": "..."}`일 때만 진행하며 확인이 없으면 `428`. 실제 운영 정책은 바꾸지 않습니다.
 
 ### 복구 뒤 1~9단계 재시험 순서
-복구 응답의 `retest`는 서버가 그 자리에서 실행한 결과입니다. 아래 표의 나머지 항목은 사람이 직접 다시 보내야 하는 요청이며, 직접 실행하지 않은 항목은 **미실행**으로 둡니다.
+복구 응답의 `retest`는 서버가 그 자리에서 실행한 결과입니다. 나머지는 사람이 직접 다시 보내야 하는 요청이며, 직접 실행하지 않은 항목은 **미실행**으로 둡니다.
 
 | 순서 | 단계 | 요청 | 기대 결과 | 상태 |
 |---|---|---|---|---|
