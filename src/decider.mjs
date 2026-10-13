@@ -15,7 +15,7 @@ const ROUTE_RULES = new Map([
 function resourceAllowed(request) {
   if (request?.service !== 'notes' || typeof request.route !== 'string'
       || typeof request.path !== 'string' || ROUTE_RULES.get(request.route) !== request.method
-      || /(?:^|\/)(?:other|foreign|teacher|notice|notices|class|admin|all)(?:$|\/)/iu.test(request.path)) {
+      || /(?:^|\/)(?:other|foreign|teacher|notice|notices|class|admin|all|export|list|search)(?:$|\/)/iu.test(request.path)) {
     return false;
   }
   const collection = request.route === 'POST /notes';

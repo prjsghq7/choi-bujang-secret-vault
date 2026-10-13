@@ -27,10 +27,12 @@ export default async function handler(request, response) {
     const ownerId = encodeURIComponent(identity.userId);
     const headers = { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json', Prefer: 'return=representation' };
     const body = request.body && typeof request.body === 'object' ? request.body : {};
+    const query = new URL(request.url, 'https://local.invalid').searchParams;
+    if ([...query.keys()].some(name => name !== 'id')) return response.status(400).json({ error: 'Resource selection must use a note id' });
     let endpoint = url + '/rest/v1/notes';
     let payload;
     if (request.method === 'GET') {
-      const requestedId = new URL(request.url, 'https://local.invalid').searchParams.get('id');
+      const requestedId = query.get('id');
       if (requestedId !== null && !/^[0-9]+$/.test(requestedId)) return response.status(400).json({ error: 'A numeric note id is required' });
       endpoint += requestedId === null
         ? `?select=id,title,content,created_at&owner_id=eq.${ownerId}&order=id`
@@ -41,7 +43,7 @@ export default async function handler(request, response) {
       if (!payload.title || !payload.content) return response.status(400).json({ error: 'Title and content are required' });
       payload.owner_id = identity.userId;
     } else {
-      const id = body.id ?? new URL(request.url, 'https://local.invalid').searchParams.get('id');
+      const id = body.id ?? query.get('id');
       if (!/^[0-9]+$/.test(String(id ?? ''))) return response.status(400).json({ error: 'A numeric note id is required' });
       endpoint += `?id=eq.${encodeURIComponent(id)}&owner_id=eq.${ownerId}`;
       if (request.method === 'PATCH') {
