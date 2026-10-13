@@ -119,3 +119,34 @@
 | 9 | 9 | 정상 조회 / 10분 내 121건 이상 GET | `observe` / `propose_revocation` | 복구 응답 `retest`에서 자동 실행 |
 
 로컬 연습: `npm run restore:test`, `npm run decider:test`, `npm run fixture:8`, `npm run detect:test`. 로컬 연습 결과는 심판 판정이 아닙니다.
+
+## 11단계: 설치형 접속 앱과 서버 기기 승인
+
+### 설치형 웹앱 화면
+- `public/manifest.webmanifest`(앱 이름 「BYTE BACK 내 자료실」, standalone, 아이콘 `public/icon.svg`)와 `public/sw.js`, `public/offline.html`을 추가했습니다. 따로 설치하는 접속 프로그램은 없습니다.
+- 서비스워커는 오프라인 안내 화면과 아이콘·manifest만 캐시하고 `/api/` 응답과 메모는 캐시하지 않습니다. 오프라인이면 안내 화면만 보입니다.
+- **앱을 설치했다는 표시만으로 기기를 믿지 않습니다.** 화면 상단의 기기 상태는 서버 기록(`GET /api/device`)이 `approved`일 때만 「서버 승인됨」으로 바뀝니다.
+
+### 기기 승인 흐름 (`/api/device`)
+1. 로그인 뒤 브라우저가 WebCrypto로 **내보낼 수 없는** ECDSA P-256 기기 키를 만듭니다. 개인키와 접근 토큰은 페이지 메모리에만 있고 localStorage·sessionStorage·IndexedDB·쿠키에 넣지 않습니다(새로고침하면 다시 승인).
+2. `POST /api/device {"action":"request","publicKey":{kty,crv,x,y}}` — 서버가 공개키에서 16자리 기기 ID를 만들고 `pending` 상태와 5분짜리 일회용 challenge를 비공개 Storage 버킷 `devices`에 기록합니다.
+3. `POST /api/device {"action":"approve","deviceId","signature","password"}` — 서버가 ① challenge에 대한 기기 키 서명(키 보유 증명)과 ② 계정 비밀번호 재확인을 **모두** 검증해야만 `approved`로 바꿉니다. 승인 버튼을 누르는 것만으로는 승인되지 않으며, 비밀번호는 저장·기록하지 않습니다.
+4. 화면은 `GET /api/device?deviceId=`로 서버 기록이 `approved`인지 확인한 뒤에만 자료실을 엽니다. 승인 전에는 메모 요청을 보내지 않고 화면에 자료가 없습니다.
+
+### 보호 요청 서명 검사 (`/api/notes`, `/api/restore`)
+- 모든 보호 요청은 헤더 `X-Device-Id`, `X-Device-Timestamp`, `X-Device-Nonce`, `X-Device-Signature`를 가져야 합니다. 서명 대상은 `aleph-device-v1\n메서드\n경로+쿼리\n본문 SHA-256\n시각\nnonce\n기기 ID`입니다.
+- `src/device-auth.mjs`의 `verifyDeviceRequest`가 확인합니다.
+  - 서명 헤더 없음 → `401 device_signature_required`
+  - 서명 뒤 **경로나 쿼리를 바꾸면** → `401 device_signature_invalid`
+  - 서명 뒤 **수정 본문을 바꾸면** → `401 device_signature_invalid`
+  - 60초가 지난 서명 → `401 device_signature_expired`, 같은 nonce 재사용 → `401 device_signature_replayed`
+  - 다른 계정의 기기·미등록 기기 → `403 device_not_registered`, 승인 전 기기 → `403 device_not_approved`
+- 서명이 맞고 서버가 승인한 기기만 `deviceRegistered: true`로 `docs/DECIDER_REQUEST.md`의 18개 항목 요청을 만들어 `src/decider.mjs`의 `decide()`에 넘기고, `allow`일 때만 기존 소유자 검사로 진행합니다. 브라우저가 보낸 승인 표시나 역할 값은 믿지 않습니다.
+
+### 직접 확인할 것
+| 확인 | 기대 결과 | 상태 |
+|---|---|---|
+| 로그인 직후, 승인 전 화면 | 메모 영역이 열리지 않고 자료가 없음 | 미실행 |
+| 승인 전 기기로 서명한 메모 요청 | `403 device_not_approved` | 미실행(배포 환경) |
+| 비밀번호 재확인 + 기기 키 서명 뒤 | 기기 상태 「서버 승인됨」, 기존 메모 추가·ID로 열기·수정·삭제 정상 | 미실행 |
+| 서명 없는 `/api/notes` 요청 | `401` | `npm run bundle` 자기 점검에서 실행 |

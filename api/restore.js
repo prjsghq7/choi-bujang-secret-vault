@@ -4,6 +4,7 @@ import { contentHash, planToken, selectRestoreRecord, verifiedPolicyDiff, verify
 import { appendRestoreAudit, listBackupIds, readVerifiedBackup } from '../src/note-backup.mjs';
 import { RULE_IDS } from '../src/decider.mjs';
 import { retestPolicies } from '../src/retest.mjs';
+import { verifyDeviceRequest } from '../src/device-auth.mjs';
 
 const verifierConfig = {
   judgeIssuer: 'https://aleph-judge-production.up.railway.app/defense/judge',
@@ -68,6 +69,8 @@ export default async function handler(request, response) {
     const verify = createLoginVerifier({ config: verifierConfig, supabaseSecretKey: key });
     const identity = await verify(authorization);
     if (!identity) return response.status(401).json({ error: 'Invalid authentication token' });
+    const device = await verifyDeviceRequest(request, identity, { url, key });
+    if (!device.ok) return response.status(device.status).json({ error: 'Approved device signature required', reason: device.reason });
     const headers = { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json', Prefer: 'return=representation' };
     // Step 0: re-read the committed backups and verify them against backups/manifest.json. Stop on any failure.
     const files = verifyBackupFiles(join(process.cwd(), 'backups'));

@@ -32,6 +32,20 @@ export async function runAttackChecks(config) {
       { attackId: 'anonymous_notes_api', expected: '비로그인 자료 API 요청이 JSON 401 또는 403으로 차단됨',
         observed: apiError ? `비로그인 자료 API가 JSON 오류로 차단됨 (HTTP ${apiResponse.status})` : `비로그인 자료 API 차단 확인 실패 (HTTP ${apiResponse.status})` },
     ];
+    if (config.step >= 11) {
+      const manifestResponse = await fetch(new URL('/manifest.webmanifest', app), { redirect: 'error', signal: AbortSignal.timeout(10000) });
+      let manifestName = '';
+      try { manifestName = (await manifestResponse.json())?.name ?? ''; } catch { /* reported below */ }
+      const unsigned = await fetch(new URL('/api/notes?id=1', app), {
+        redirect: 'error', signal: AbortSignal.timeout(10000), headers: { Authorization: 'Bearer unsigned.check.only' },
+      });
+      checks.push(
+        { attackId: 'install_manifest', expected: '설치형 웹앱 manifest가 열리고 앱 이름이 있음',
+          observed: manifestResponse.ok && manifestName ? `manifest 확인 (HTTP ${manifestResponse.status})` : `manifest 확인 실패 (HTTP ${manifestResponse.status})` },
+        { attackId: 'unsigned_protected_request', expected: '기기 서명 없는 보호 요청이 401 또는 403으로 거부됨',
+          observed: unsigned.status === 401 || unsigned.status === 403 ? `서명 없는 요청 거부됨 (HTTP ${unsigned.status})` : `서명 없는 요청 거부 확인 실패 (HTTP ${unsigned.status})` },
+      );
+    }
     if (config.step >= 9) checks.push({
       attackId: 'revocation_detection_contract',
       expected: '복합 조회 사건의 회수 제안은 서버 측 탐지 계약으로만 생성됨',

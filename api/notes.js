@@ -1,6 +1,7 @@
 import { createLoginVerifier } from '../src/verify-login.mjs';
 import { contentHash } from '../src/restore.mjs';
 import { captureNoteBackup } from '../src/note-backup.mjs';
+import { decideNotesRequest, verifyDeviceRequest } from '../src/device-auth.mjs';
 
 const verifierConfig = {
   judgeIssuer: 'https://aleph-judge-production.up.railway.app/defense/judge',
@@ -26,6 +27,15 @@ export default async function handler(request, response) {
     const verify = createLoginVerifier({ config: verifierConfig, supabaseSecretKey: key });
     const identity = await verify(authorization);
     if (!identity) return response.status(401).json({ error: 'Invalid authentication token' });
+    // 11단계: every protected request must be signed by a server-approved device key, then pass decide().
+    const device = await verifyDeviceRequest(request, identity, { url, key });
+    if (!device.ok) return response.status(device.status).json({ error: 'Approved device signature required', reason: device.reason });
+    const rawQuery = new URL(request.url, 'https://local.invalid').search.replace(/^\?/u, '');
+    const rawId = request.body?.id ?? new URL(request.url, 'https://local.invalid').searchParams.get('id');
+    const noteId = request.method === 'POST' || rawId === null || rawId === undefined ? null : String(rawId);
+    const verdict = await decideNotesRequest({ identity, deviceId: device.deviceId, deviceRegistered: device.deviceRegistered,
+      method: request.method, noteId: noteId !== null && /^[0-9]+$/u.test(noteId) ? noteId : noteId === null ? null : 'invalid', query: rawQuery });
+    if (verdict.decision !== 'allow') return response.status(403).json({ error: 'Request denied by policy', reason: verdict.reasonCode });
     const ownerId = encodeURIComponent(identity.userId);
     const headers = { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json', Prefer: 'return=representation' };
     const body = request.body && typeof request.body === 'object' ? request.body : {};
