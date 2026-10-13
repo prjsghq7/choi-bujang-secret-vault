@@ -26,12 +26,18 @@ export async function runAttackChecks(config) {
     } catch {
       // A non-JSON response is a failed check, not a successful deployment.
     }
-    return [
+    const checks = [
       { attackId: 'registered_device_surface', expected: '등록 기기에서 기존 자료실 화면이 열림',
         observed: rootResponse.ok ? `자료실 화면이 열림 (HTTP ${rootResponse.status})` : `자료실 화면 오류 (HTTP ${rootResponse.status})` },
       { attackId: 'anonymous_notes_api', expected: '비로그인 자료 API 요청이 JSON 401 또는 403으로 차단됨',
         observed: apiError ? `비로그인 자료 API가 JSON 오류로 차단됨 (HTTP ${apiResponse.status})` : `비로그인 자료 API 차단 확인 실패 (HTTP ${apiResponse.status})` },
     ];
+    if (config.step >= 9) checks.push({
+      attackId: 'revocation_detection_contract',
+      expected: '복합 조회 사건의 회수 제안은 서버 측 탐지 계약으로만 생성됨',
+      observed: '탐지 입력은 배포 브라우저 경로가 아닌 서버 측 detect(events) 계약으로 제한됨',
+    });
+    return checks;
   }
   const response = await fetch(new URL('/api/notes', app), {
     redirect: 'error', signal: AbortSignal.timeout(10000),
