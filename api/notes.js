@@ -33,10 +33,9 @@ export default async function handler(request, response) {
     let payload;
     if (request.method === 'GET') {
       const requestedId = query.get('id');
+      if (requestedId === null) return response.status(403).json({ error: 'A resource id is required' });
       if (requestedId !== null && !/^[0-9]+$/.test(requestedId)) return response.status(400).json({ error: 'A numeric note id is required' });
-      endpoint += requestedId === null
-        ? `?select=id,title,content,created_at,owner_id&owner_id=eq.${ownerId}&order=id`
-        : `?select=id,title,content,created_at,owner_id&id=eq.${encodeURIComponent(requestedId)}&owner_id=eq.${ownerId}`;
+      endpoint += `?select=id,title,content,created_at,owner_id&id=eq.${encodeURIComponent(requestedId)}&owner_id=eq.${ownerId}`;
     }
     else if (request.method === 'POST') {
       payload = notePayload(body);
