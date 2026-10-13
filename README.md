@@ -42,3 +42,10 @@
 - 브라우저는 `/api/auth`와 `/api/notes`만 호출하고 Supabase URL·공개 키·서버 전용 키를 포함하지 않습니다.
 - Supabase `anon` 직접 접근 권한은 회수되어 원본 Data API로 메모를 읽거나 수정할 수 없습니다.
 - `aleph.json`의 `allowedRoutes`에는 서버 함수 경로를 기록하고, 서버 함수의 로그인·소유자 검사는 유지합니다.
+
+## 6단계: 등록한 기기만 자료실에 들어옴
+- `src/decider.mjs`는 판정 요청 계약의 `deviceRegistered`가 `true`인 경우에만 `allow`와 `approved`를 반환합니다.
+- `deviceRegistered`가 `false`이거나 없으면 `deny`와 `device_not_registered`로 거부합니다.
+- 판정기는 계약에 없는 사용자·기기·위치 필드를 만들지 않으며, 인증서·CA·개인키를 생성하거나 저장하지 않습니다.
+- 로컬 확인은 `npm run decider:test`로 실행합니다. 출력에서 `등록 기기의 정상 요청`과 `미등록 기기의 가상 요청`이 모두 `통과`인지 확인합니다.
+- 이 명령은 가상 요청 연습이며 실제 심판 판정이나 운영 접속 증거가 아닙니다.
