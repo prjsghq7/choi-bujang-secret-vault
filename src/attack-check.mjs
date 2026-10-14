@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 // The student changes this check as each stage adds an attack to the same app.
 // Never return tokens, private keys, real names, or note bodies.
 export async function runAttackChecks(config) {
@@ -13,6 +15,9 @@ export async function runAttackChecks(config) {
   if (app.protocol !== 'https:' || app.username || app.password || app.search || app.hash
       || app.pathname !== '/' || app.hostname.endsWith('.example')) {
     throw new Error('aleph.config.json의 실제 배포 주소를 먼저 넣어 주세요.');
+  }
+  if (config.step >= 12) {
+    return (await runLiveAttackChecks(config)).map(({ attackId, expected, observed }) => ({ attackId, expected, observed }));
   }
   if (config.step >= 6) {
     const rootResponse = await fetch(app, { redirect: 'error', signal: AbortSignal.timeout(10000) });
@@ -83,4 +88,68 @@ export async function runAttackChecks(config) {
     { attackId: 'allowed_routes_manifest', expected: 'aleph.json에 서버 허용 경로가 있음',
       observed: Array.isArray(aleph.allowedRoutes) && aleph.allowedRoutes.length ? `허용 경로 ${aleph.allowedRoutes.length}개 확인 (HTTP ${alephResponse.status})` : '허용 경로가 없음' },
   ];
+}
+
+// 12단계: every attackId below is one real request with its own X-Request-Id. The same records
+// (attackId, request ID, status, time) are written by `npm run ops:check` to docs/OPS_RESULTS.md and
+// public/ops-results.json, which the ops room screen reads. A check that sends no request is `not_run`.
+const FAKE_SIGNATURE = { 'X-Device-Id': '0'.repeat(16), 'X-Device-Timestamp': '1970-01-01T00:00:00.000Z',
+  'X-Device-Nonce': '0'.repeat(32), 'X-Device-Signature': 'A'.repeat(86) };
+const noNotes = text => !/실습용 가상|SAMPLE_NOTE_1/u.test(text);
+
+export const LIVE_ATTACKS = Object.freeze([
+  { attackId: 'registered_device_surface', stage: 11, expected: '자료실 화면이 열리고 승인 전 메모 영역은 비어 있음', method: 'GET', path: '/',
+    pass: (status, text) => status === 200 && text.includes('<section id="app" hidden></section>') },
+  { attackId: 'public_data_json', stage: 1, expected: '공개 data.json이 없거나 메모가 없음', method: 'GET', path: '/data.json',
+    pass: (status, text) => status === 404 || (status === 200 && noNotes(text)) },
+  { attackId: 'anonymous_notes_api', stage: 3, expected: '비로그인 메모 조회 401', method: 'GET', path: '/api/notes?id=1', pass: status => status === 401 },
+  { attackId: 'forged_token_notes', stage: 4, expected: '위조 토큰·위조 서명 메모 조회 401', method: 'GET', path: '/api/notes?id=1',
+    headers: { Authorization: 'Bearer a.b.c', ...FAKE_SIGNATURE }, pass: status => status === 401 },
+  { attackId: 'anonymous_notes_list', stage: 8, expected: '비로그인 전체 목록 조회 401', method: 'GET', path: '/api/notes', pass: status => status === 401 },
+  { attackId: 'anonymous_restore', stage: 10, expected: '비로그인 복구 요청 401', method: 'POST', path: '/api/restore', body: { id: '1' }, pass: status => status === 401 },
+  { attackId: 'unsigned_protected_request', stage: 11, expected: '기기 서명 없는 보호 요청 401', method: 'GET', path: '/api/notes?id=1',
+    headers: { Authorization: 'Bearer a.b.c' }, pass: status => status === 401 },
+  { attackId: 'unsigned_change_after_restore', stage: 12, expected: '서명 없는 변경 요청 401', method: 'PATCH', path: '/api/notes',
+    headers: { Authorization: 'Bearer a.b.c' }, body: { id: 1, content: 'x' }, pass: status => status === 401 },
+  { attackId: 'install_manifest', stage: 11, expected: 'manifest 200, 앱 이름 있음', method: 'GET', path: '/manifest.webmanifest',
+    pass: (status, text) => status === 200 && /"name"/u.test(text) },
+  { attackId: 'stage2_page_removed', stage: 11, expected: '예전 무인증 화면 404', method: 'GET', path: '/index.stage2.html', pass: status => status === 404 },
+  { attackId: 'anonymous_ops_room', stage: 12, expected: '비로그인 작전실 조회 401', method: 'GET', path: '/api/ops', pass: status => status === 401 },
+  { attackId: 'anonymous_device_registry', stage: 12, expected: '비로그인 기기 등록부 조회 401', method: 'GET', path: '/api/device', pass: status => status === 401 },
+]);
+
+export const NOT_SENT = Object.freeze([
+  { attackId: 'revocation_detection_contract', stage: 9, expected: '운영 엔진 실사건으로 burst_read 회수 제안', why: '운영 엔진이 실사건을 이 앱에 전달하지 않아 요청을 보내지 않음' },
+  { attackId: 'revoked_identity_resend', stage: 12, expected: '회수된 신원 재전송 403 identity_revoked', why: '실제 계정 토큰과 승인된 기기 키가 필요해 보내지 않음' },
+  { attackId: 'cross_owner_read', stage: 4, expected: 'B 토큰으로 A 메모 조회 404/403', why: '실제 계정 토큰과 승인된 기기 키가 필요해 보내지 않음' },
+  { attackId: 'signed_path_body_tamper', stage: 11, expected: '서명 뒤 경로·본문 변경 401', why: '승인된 기기 키가 필요해 보내지 않음(npm run device:test 로컬 연습은 통과)' },
+]);
+
+export async function runLiveAttackChecks(config) {
+  const app = new URL(config.publicAppUrl);
+  const rows = [];
+  for (const attack of LIVE_ATTACKS) {
+    const requestId = randomUUID();
+    const checkedAt = new Date().toISOString();
+    try {
+      const response = await fetch(new URL(attack.path, app), { method: attack.method, redirect: 'manual', signal: AbortSignal.timeout(15000),
+        headers: { 'X-Request-Id': requestId, ...(attack.headers ?? {}), ...(attack.body ? { 'Content-Type': 'application/json' } : {}) },
+        body: attack.body ? JSON.stringify(attack.body) : undefined });
+      const text = await response.text();
+      let reason = null;
+      try { reason = JSON.parse(text)?.reason ?? null; } catch { /* not JSON */ }
+      const passed = attack.pass(response.status, text);
+      const serverId = response.headers.get('x-request-id') ?? requestId;
+      rows.push({ ...attack, status: response.status, reason, requestId: serverId, checkedAt, result: passed ? 'pass' : 'fail',
+        observed: `${passed ? '기대대로' : '기대와 다름'} · HTTP ${response.status}${reason ? ` ${reason}` : ''} · requestId ${serverId} · ${checkedAt}` });
+    } catch (error) {
+      const why = error.cause?.code ?? error.name;
+      rows.push({ ...attack, status: null, reason: why, requestId, checkedAt, result: 'fail',
+        observed: `요청 실패 ${why} · requestId ${requestId} · ${checkedAt}` });
+    }
+  }
+  for (const item of NOT_SENT) {
+    rows.push({ ...item, method: null, path: null, status: null, reason: item.why, requestId: null, checkedAt: null, result: 'not_run', observed: 'not_run' });
+  }
+  return rows;
 }

@@ -191,6 +191,7 @@
 - **학생 작업**: `src/decider.mjs`(6~8 규칙), `src/detect.mjs`(9), `src/restore.mjs`·`src/note-backup.mjs`·`backups/`(10), `src/device-auth.mjs`·`src/device-store.mjs`·`api/device.js`·`public/` 접속 앱(11), `api/ops.js`·`scripts/ops-check.mjs`·회수 적용(12), 그리고 `api/notes.js`·`api/restore.js`의 연결.
 - 비밀값(서버 키, 토큰, 비밀번호, 기기 개인키)은 어떤 파일에도 포장하지 않습니다.
 
-### 2026-10-14 실측 메모
-- `npm run ops:check` 결과는 `docs/OPS_RESULTS.md`에 있습니다(통과 28 · 실패 1 · 미실행 6).
-- 실패 1건: 5단계 「원본 Supabase REST 직접 조회」가 `ENOTFOUND`였습니다. 이 시각 Supabase 프로젝트 주소가 DNS에서 확인되지 않았고(프로젝트 일시 중지로 추정), 배포된 `/api/auth`도 `502`였습니다. 차단이 확인된 것이 아니므로 통과로 바꾸지 않았습니다. 프로젝트를 다시 켠 뒤 `npm run ops:check`로 다시 측정합니다.
+### 실측 기록과 자기 점검의 연결
+- `src/attack-check.mjs`의 `LIVE_ATTACKS`가 attackId마다 실제 요청 하나를 `X-Request-Id`와 함께 보냅니다. `npm run bundle`의 `attackAttempts`와 `npm run ops:check`가 쓰는 `docs/OPS_RESULTS.md`·`public/ops-results.json`은 같은 attackId·요청 ID·상태코드·시각을 기록하고, 작전실 화면은 그 파일을 그대로 표로 보여 줍니다.
+- 요청을 보내지 않은 점검(`revocation_detection_contract`, `revoked_identity_resend`, `cross_owner_read`, `signed_path_body_tamper`)은 observed를 `not_run`으로 적습니다.
+- 2026-10-14 측정 시 Supabase 프로젝트 주소가 DNS에서 확인되지 않았습니다(`ENOTFOUND`, 일시 중지로 추정). 이 상태에서는 로그인·메모 저장이 `502`가 되며, 로그인이 필요한 정상 요청은 측정하지 않았습니다.

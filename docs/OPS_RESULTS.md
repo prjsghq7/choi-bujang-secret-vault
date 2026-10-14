@@ -1,45 +1,41 @@
 # 12단계 실측 결과
 
-대상: https://choi-bujang-secret-vault-navy.vercel.app · 생성: 2026-10-14T00:11:15.895Z
+대상: https://choi-bujang-secret-vault-navy.vercel.app · 생성: 2026-10-14T00:15:34.712Z
 
-심판의 41종 시험 결과가 아닙니다. 이 표의 live 행만 실제 배포 응답이며, not_run 행은 실행하지 않았습니다.
+심판의 41종 시험 결과가 아닙니다. live 행만 실제 배포 응답(npm run bundle의 attackId와 같음)이고 local은 로컬 연습, not_run은 보내지 않은 요청입니다.
 
-통과 28 · 실패 1 · 미실행 6
+통과 27 · 실패 0 · 미실행 4
 
-| 단계 | 시험 | 종류 | 기대 | 요청 | 실제 | 요청 ID | 확인 시각 | 결과 |
+| attackId | 단계 | 종류 | 기대 | 요청 | 실제 | 요청 ID | 확인 시각 | 결과 |
 |---|---|---|---|---|---|---|---|---|
-| 1 | 공개 data.json에 메모 없음 | live | 404 또는 메모 없음 | GET /data.json | 404 | 6b64b62c-97f6-4543-b7c8-16671f500247 | 2026-10-14T00:11:13.876Z | 통과 |
-| 2 | GitHub 최신 data.json에 메모 없음 | live | 메모 문장 없음 | GET /prjsghq7/choi-bujang-secret-vault/main/data.json | 200 | 8119fd60-ff41-4e4c-a3a6-ba258f360339 | 2026-10-14T00:11:13.964Z | 통과 |
-| 3 | 비로그인 메모 조회 | live | 401 | GET /api/notes?id=1 | 401 | e5a1689d-9d70-4939-abc7-b6ebf23400e0 | 2026-10-14T00:11:14.003Z | 통과 |
-| 4 | 위조 토큰 + 위조 서명으로 메모 조회 | live | 401 | GET /api/notes?id=1 | 401 | 5191c973-ddbb-45de-aed3-0bf6e5644fe3 | 2026-10-14T00:11:14.231Z | 통과 |
-| 5 | 원본 Supabase REST 직접 조회(키 없음) | live | 401 또는 403 | GET /rest/v1/notes | - ENOTFOUND | 01faa071-b937-418f-aed2-accf3acb5263 | 2026-10-14T00:11:14.468Z | 실패 |
-| 8 | 비로그인 전체 목록 조회 | live | 401 | GET /api/notes | 401 | f7e1c595-c443-475c-a8d8-86a46238ecda | 2026-10-14T00:11:14.546Z | 통과 |
-| 10 | 비로그인 복구 요청 | live | 401 | POST /api/restore | 401 | c693c4d1-a6e4-444e-abcc-0272ad49370d | 2026-10-14T00:11:14.766Z | 통과 |
-| 11 | 서명 없는 보호 요청 | live | 401 device_signature_required | GET /api/notes?id=1 | 401 device_signature_required | 25ddeab5-f640-4307-a9ee-8682c83138ba | 2026-10-14T00:11:14.976Z | 통과 |
-| 11 | 서명 없는 수정 요청(복구 뒤 변경 시도) | live | 401 | PATCH /api/notes | 401 device_signature_required | f2a9d73b-c9d7-4a50-b251-675a5ad79014 | 2026-10-14T00:11:15.184Z | 통과 |
-| 11 | 설치형 앱 manifest | live | 200 | GET /manifest.webmanifest | 200 | c2ca52c2-3a34-486b-9159-af14778baa78 | 2026-10-14T00:11:15.411Z | 통과 |
-| 11 | 승인 전 화면에 메모 영역 없음 | live | 200, 빈 #app | GET / | 200 | 5762c32e-71c1-4bad-8345-340ff093055e | 2026-10-14T00:11:15.427Z | 통과 |
-| 11 | 예전 무인증 화면 제거 | live | 404 | GET /index.stage2.html | 404 | ca4fd704-088c-41a3-b5ef-1818b0d7f175 | 2026-10-14T00:11:15.444Z | 통과 |
-| 12 | 비로그인 작전실 조회 | live | 401 | GET /api/ops | 401 | 3fdd9015-71c8-43c4-87b2-b8ace7ddaf36 | 2026-10-14T00:11:15.457Z | 통과 |
-| 12 | 비로그인 기기 등록부 조회 | live | 401 | GET /api/device | 401 | 1bd2bdef-24b7-4d1d-89e4-b192089ea03d | 2026-10-14T00:11:15.680Z | 통과 |
-| 6 | 등록 기기의 정상 요청 | local | 판정기 기대값 | - | - | - | 2026-10-14T00:11:15.893Z | 통과 |
-| 6 | 미등록 기기의 가상 요청 | local | 판정기 기대값 | - | - | - | 2026-10-14T00:11:15.893Z | 통과 |
-| 7 | 복합 이상 접속 | local | 판정기 기대값 | - | - | - | 2026-10-14T00:11:15.893Z | 통과 |
-| 7 | 다시 확인한 복합 이상 접속 | local | 판정기 기대값 | - | - | - | 2026-10-14T00:11:15.893Z | 통과 |
-| 8 | 구역 판정 own | local | allow | - | - | - | 2026-10-14T00:11:15.893Z | 통과 |
-| 8 | 구역 판정 otherRead | local | deny | - | - | - | 2026-10-14T00:11:15.893Z | 통과 |
-| 8 | 구역 판정 otherUpdate | local | deny | - | - | - | 2026-10-14T00:11:15.893Z | 통과 |
-| 8 | 구역 판정 otherList | local | deny | - | - | - | 2026-10-14T00:11:15.893Z | 통과 |
-| 8 | 구역 판정 teacherNotice | local | deny | - | - | - | 2026-10-14T00:11:15.893Z | 통과 |
-| 9 | 정상 조회 30건 | local | 탐지 기대값 | - | - | - | 2026-10-14T00:11:15.895Z | 통과 |
-| 9 | 10분 안에 120건 | local | 탐지 기대값 | - | - | - | 2026-10-14T00:11:15.895Z | 통과 |
-| 9 | 10분 안에 121건 | local | 탐지 기대값 | - | - | - | 2026-10-14T00:11:15.895Z | 통과 |
-| 9 | 폭주 조회 200건 | local | 탐지 기대값 | - | - | - | 2026-10-14T00:11:15.895Z | 통과 |
-| 9 | 서로 다른 사용자 각 100건 | local | 탐지 기대값 | - | - | - | 2026-10-14T00:11:15.895Z | 통과 |
-| 9 | 10분 밖으로 흩어진 조회 200건 | local | 탐지 기대값 | - | - | - | 2026-10-14T00:11:15.895Z | 통과 |
-| 4 | B 토큰으로 A 메모 조회 | not_run | 404/403 | - | - 실제 계정 토큰·승인된 기기 키가 필요해 이 스크립트로는 보내지 않음 | - | - | 미실행 |
-| 11 | 승인된 기기의 정상 서명 CRUD | not_run | 200 | - | - 실제 계정 토큰·승인된 기기 키가 필요해 이 스크립트로는 보내지 않음 | - | - | 미실행 |
-| 11 | 서명 뒤 경로·본문 변경 | not_run | 401 device_signature_invalid | - | - 실제 계정 토큰·승인된 기기 키가 필요해 이 스크립트로는 보내지 않음 (npm run device:test 로컬 연습은 통과) | - | - | 미실행 |
-| 12 | 미등록 기기 요청 뒤 회수된 신원으로 재전송 | not_run | 403 identity_revoked | - | - 실제 계정 토큰·승인된 기기 키가 필요해 이 스크립트로는 보내지 않음 | - | - | 미실행 |
-| 10 | B 메모 변조·삭제 뒤 복구 | not_run | 200 + 해시 일치 | - | - 실제 계정 토큰·승인된 기기 키가 필요해 이 스크립트로는 보내지 않음 | - | - | 미실행 |
-| 9 | 운영 엔진 실사건으로 burst_read 탐지 | not_run | propose_revocation | - | - 운영 엔진이 실사건을 이 앱에 전달하지 않음 | - | - | 미실행 |
+| registered_device_surface | 11 | live | 자료실 화면이 열리고 승인 전 메모 영역은 비어 있음 | GET / | 200 | a311c5d1-32b7-4db0-bd84-3aa785f64c0d | 2026-10-14T00:15:32.254Z | 통과 |
+| public_data_json | 1 | live | 공개 data.json이 없거나 메모가 없음 | GET /data.json | 404 | d7858ce5-dd66-4870-af39-9a54ad037d84 | 2026-10-14T00:15:32.444Z | 통과 |
+| anonymous_notes_api | 3 | live | 비로그인 메모 조회 401 | GET /api/notes?id=1 | 401 | 82e87ea3-a550-492c-a36d-1d2153336bf5 | 2026-10-14T00:15:32.456Z | 통과 |
+| forged_token_notes | 4 | live | 위조 토큰·위조 서명 메모 조회 401 | GET /api/notes?id=1 | 401 | a79ed1e8-1ce5-4a94-a7c5-2b6ff6f268d2 | 2026-10-14T00:15:32.926Z | 통과 |
+| anonymous_notes_list | 8 | live | 비로그인 전체 목록 조회 401 | GET /api/notes | 401 | 21b3e364-6575-4204-a823-b1247429536b | 2026-10-14T00:15:33.162Z | 통과 |
+| anonymous_restore | 10 | live | 비로그인 복구 요청 401 | POST /api/restore | 401 | f585ed70-d869-4d6d-af2c-d20d0c273e9e | 2026-10-14T00:15:33.376Z | 통과 |
+| unsigned_protected_request | 11 | live | 기기 서명 없는 보호 요청 401 | GET /api/notes?id=1 | 401 device_signature_required | 702ea401-3b66-468f-a6b5-327fe3f138cf | 2026-10-14T00:15:33.595Z | 통과 |
+| unsigned_change_after_restore | 12 | live | 서명 없는 변경 요청 401 | PATCH /api/notes | 401 device_signature_required | e056cd95-aad4-4605-8a90-a1e5ecb67f05 | 2026-10-14T00:15:33.813Z | 통과 |
+| install_manifest | 11 | live | manifest 200, 앱 이름 있음 | GET /manifest.webmanifest | 200 | 15c1fc2f-caa0-408d-abbf-a90c5af93a2f | 2026-10-14T00:15:34.028Z | 통과 |
+| stage2_page_removed | 11 | live | 예전 무인증 화면 404 | GET /index.stage2.html | 404 | d9811e91-2fa8-4211-96ad-57bad27e7ffe | 2026-10-14T00:15:34.046Z | 통과 |
+| anonymous_ops_room | 12 | live | 비로그인 작전실 조회 401 | GET /api/ops | 401 | 81588864-bad2-4550-8368-031543a7685f | 2026-10-14T00:15:34.058Z | 통과 |
+| anonymous_device_registry | 12 | live | 비로그인 기기 등록부 조회 401 | GET /api/device | 401 | 6f6c6682-8a45-47f5-849c-53d0506f1ff0 | 2026-10-14T00:15:34.486Z | 통과 |
+| revocation_detection_contract | 9 | not_run | 운영 엔진 실사건으로 burst_read 회수 제안 | - | - 운영 엔진이 실사건을 이 앱에 전달하지 않아 요청을 보내지 않음 | - | - | 미실행 |
+| revoked_identity_resend | 12 | not_run | 회수된 신원 재전송 403 identity_revoked | - | - 실제 계정 토큰과 승인된 기기 키가 필요해 보내지 않음 | - | - | 미실행 |
+| cross_owner_read | 4 | not_run | B 토큰으로 A 메모 조회 404/403 | - | - 실제 계정 토큰과 승인된 기기 키가 필요해 보내지 않음 | - | - | 미실행 |
+| signed_path_body_tamper | 11 | not_run | 서명 뒤 경로·본문 변경 401 | - | - 승인된 기기 키가 필요해 보내지 않음(npm run device:test 로컬 연습은 통과) | - | - | 미실행 |
+| local_decider_1 | 6 | local | 등록 기기의 정상 요청 | - | - | - | 2026-10-14T00:15:34.710Z | 통과 |
+| local_decider_2 | 6 | local | 미등록 기기의 가상 요청 | - | - | - | 2026-10-14T00:15:34.710Z | 통과 |
+| local_decider_3 | 7 | local | 복합 이상 접속 | - | - | - | 2026-10-14T00:15:34.710Z | 통과 |
+| local_decider_4 | 7 | local | 다시 확인한 복합 이상 접속 | - | - | - | 2026-10-14T00:15:34.710Z | 통과 |
+| local_zone_own | 8 | local | 구역 판정 own → allow | - | - | - | 2026-10-14T00:15:34.710Z | 통과 |
+| local_zone_otherRead | 8 | local | 구역 판정 otherRead → deny | - | - | - | 2026-10-14T00:15:34.710Z | 통과 |
+| local_zone_otherUpdate | 8 | local | 구역 판정 otherUpdate → deny | - | - | - | 2026-10-14T00:15:34.710Z | 통과 |
+| local_zone_otherList | 8 | local | 구역 판정 otherList → deny | - | - | - | 2026-10-14T00:15:34.710Z | 통과 |
+| local_zone_teacherNotice | 8 | local | 구역 판정 teacherNotice → deny | - | - | - | 2026-10-14T00:15:34.710Z | 통과 |
+| local_detect_1 | 9 | local | 정상 조회 30건 | - | - | - | 2026-10-14T00:15:34.712Z | 통과 |
+| local_detect_2 | 9 | local | 10분 안에 120건 | - | - | - | 2026-10-14T00:15:34.712Z | 통과 |
+| local_detect_3 | 9 | local | 10분 안에 121건 | - | - | - | 2026-10-14T00:15:34.712Z | 통과 |
+| local_detect_4 | 9 | local | 폭주 조회 200건 | - | - | - | 2026-10-14T00:15:34.712Z | 통과 |
+| local_detect_5 | 9 | local | 서로 다른 사용자 각 100건 | - | - | - | 2026-10-14T00:15:34.712Z | 통과 |
+| local_detect_6 | 9 | local | 10분 밖으로 흩어진 조회 200건 | - | - | - | 2026-10-14T00:15:34.712Z | 통과 |
