@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build-public.mjs",
+    "test": "npm run restore:test && npm run decider:test && npm run fixture:7 && npm run fixture:8 && npm run detect:test && npm run device:test",
     "test:r5": "node --test test/r5.test.mjs",
     "test:package": "node --test test/package-starter.test.mjs",
     "bundle": "node scripts/bundle.mjs",

@@ -15,7 +15,10 @@ if (config.step === 1) {
   await copyFile(source, output);
   console.log('실습용 공개 자료를 public/data.json에 복사했습니다.');
 }
-if (!process.argv.includes('--local')) {
+// Outside a Vercel build (e.g. an isolated check), skip the deployment identity instead of writing guessed values.
+if (!process.argv.includes('--local') && !process.env.VERCEL) {
+  console.log('Vercel 빌드 환경이 아니어서 public/aleph.json을 만들지 않았습니다. 배포 식별 정보는 Vercel 빌드에서만 기록합니다.');
+} else if (!process.argv.includes('--local')) {
   const identity = deploymentIdentity(process.env, config);
   await writeFile(resolve(root, 'public', 'aleph.json'),
     `${JSON.stringify(identity, null, 2)}\n`, 'utf8');
