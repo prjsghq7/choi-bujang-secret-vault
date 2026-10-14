@@ -134,7 +134,7 @@ export async function runLiveAttackChecks(config) {
     const checkedAt = new Date().toISOString();
     try {
       const response = await fetch(new URL(attack.path, app), { method: attack.method, redirect: 'manual', signal: AbortSignal.timeout(15000),
-        headers: { 'X-Request-Id': requestId, 'X-Aleph-Attack-Id': attack.attackId, ...(attack.headers ?? {}), ...(attack.body ? { 'Content-Type': 'application/json' } : {}) },
+        headers: { 'X-Request-Id': requestId, 'X-Aleph-Attack-Id': attack.attackId, 'X-Attack-Id': attack.attackId, ...(attack.headers ?? {}), ...(attack.body ? { 'Content-Type': 'application/json' } : {}) },
         body: attack.body ? JSON.stringify(attack.body) : undefined });
       const text = await response.text();
       let reason = null;
@@ -142,7 +142,7 @@ export async function runLiveAttackChecks(config) {
       const passed = attack.pass(response.status, text);
       const serverId = response.headers.get('x-request-id') ?? requestId;
       rows.push({ ...attack, status: response.status, reason, requestId: serverId, checkedAt, result: passed ? 'pass' : 'fail',
-        observed: `${passed ? '기대대로' : '기대와 다름'} · HTTP ${response.status}${reason ? ` ${reason}` : ''} · requestId ${serverId} · ${checkedAt}` });
+        observed: `${attack.method} ${new URL(attack.path, app).href} → HTTP ${response.status}${reason ? ` ${reason}` : ''} (${passed ? '기대대로' : '기대와 다름'}, requestId ${serverId}, ${checkedAt})` });
     } catch (error) {
       // The request never reached the server (e.g. no network in an isolated run): nothing was observed.
       rows.push({ ...attack, status: null, reason: error.cause?.code ?? error.name, requestId: null, checkedAt: null,
