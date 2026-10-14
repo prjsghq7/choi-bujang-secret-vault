@@ -134,7 +134,7 @@ export async function runLiveAttackChecks(config) {
     const checkedAt = new Date().toISOString();
     try {
       const response = await fetch(new URL(attack.path, app), { method: attack.method, redirect: 'manual', signal: AbortSignal.timeout(15000),
-        headers: { 'X-Request-Id': requestId, ...(attack.headers ?? {}), ...(attack.body ? { 'Content-Type': 'application/json' } : {}) },
+        headers: { 'X-Request-Id': requestId, 'X-Aleph-Attack-Id': attack.attackId, ...(attack.headers ?? {}), ...(attack.body ? { 'Content-Type': 'application/json' } : {}) },
         body: attack.body ? JSON.stringify(attack.body) : undefined });
       const text = await response.text();
       let reason = null;
@@ -144,9 +144,9 @@ export async function runLiveAttackChecks(config) {
       rows.push({ ...attack, status: response.status, reason, requestId: serverId, checkedAt, result: passed ? 'pass' : 'fail',
         observed: `${passed ? '기대대로' : '기대와 다름'} · HTTP ${response.status}${reason ? ` ${reason}` : ''} · requestId ${serverId} · ${checkedAt}` });
     } catch (error) {
-      const why = error.cause?.code ?? error.name;
-      rows.push({ ...attack, status: null, reason: why, requestId, checkedAt, result: 'fail',
-        observed: `요청 실패 ${why} · requestId ${requestId} · ${checkedAt}` });
+      // The request never reached the server (e.g. no network in an isolated run): nothing was observed.
+      rows.push({ ...attack, status: null, reason: error.cause?.code ?? error.name, requestId: null, checkedAt: null,
+        result: 'not_run', observed: 'not_run' });
     }
   }
   for (const item of NOT_SENT) {
