@@ -1,0 +1,92 @@
+{
+  "schema": "aleph.xdr.deny-rules.v1",
+  "moduleKey": "persistence",
+  "generatedAt": "2026-10-14T00:40:07.092Z",
+  "rules": [
+    {
+      "id": "xdr-persistence-ps-01",
+      "effect": "deny",
+      "match": {
+        "srcip": "203.0.113.12"
+      },
+      "reasonCode": "xdr_persistence",
+      "evidence": [
+        "ps-01",
+        "ps-02"
+      ],
+      "expiresAt": "2026-10-14T01:40:07.092Z"
+    },
+    {
+      "id": "xdr-persistence-ps-03",
+      "effect": "deny",
+      "match": {
+        "srcip": "198.51.100.12"
+      },
+      "reasonCode": "xdr_persistence",
+      "evidence": [
+        "ps-03"
+      ],
+      "expiresAt": "2026-10-14T01:40:07.092Z"
+    },
+    {
+      "id": "xdr-persistence-ps-04",
+      "effect": "deny",
+      "match": {
+        "srcip": "192.0.2.12"
+      },
+      "reasonCode": "xdr_persistence",
+      "evidence": [
+        "ps-04"
+      ],
+      "expiresAt": "2026-10-14T01:40:07.092Z"
+    },
+    {
+      "id": "xdr-persistence-ps-05",
+      "effect": "deny",
+      "match": {
+        "srcip": "203.0.113.19"
+      },
+      "reasonCode": "xdr_persistence",
+      "evidence": [
+        "ps-05"
+      ],
+      "expiresAt": "2026-10-14T01:40:07.092Z"
+    },
+    {
+      "id": "xdr-persistence-ps-06",
+      "effect": "deny",
+      "match": {
+        "srcip": "198.51.100.19"
+      },
+      "reasonCode": "xdr_persistence",
+      "evidence": [
+        "ps-06"
+      ],
+      "expiresAt": "2026-10-14T01:40:07.092Z"
+    },
+    {
+      "id": "xdr-persistence-ps-07",
+      "effect": "deny",
+      "match": {
+        "srcip": "192.0.2.19"
+      },
+      "reasonCode": "xdr_persistence",
+      "evidence": [
+        "ps-07"
+      ],
+      "expiresAt": "2026-10-14T01:40:07.092Z"
+    },
+    {
+      "id": "xdr-persistence-ps-08",
+      "effect": "deny",
+      "match": {
+        "srcip": "203.0.113.33"
+      },
+      "reasonCode": "xdr_persistence",
+      "evidence": [
+        "ps-08"
+      ],
+      "expiresAt": "2026-10-14T01:40:07.092Z"
+    }
+  ]
+}

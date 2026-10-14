@@ -1,0 +1,155 @@
+{
+  "schema": "aleph.xdr.result.v1",
+  "moduleKey": "persistence",
+  "decisions": [
+    {
+      "alertId": "ps-01",
+      "action": "block",
+      "confidence": 0.93,
+      "reason": "패턴 service_or_task_from_temp_folder, unsigned_new_service (수준 12)"
+    },
+    {
+      "alertId": "ps-02",
+      "action": "block",
+      "confidence": 0.9,
+      "reason": "패턴 service_or_task_from_temp_folder (수준 12)"
+    },
+    {
+      "alertId": "ps-03",
+      "action": "block",
+      "confidence": 0.89,
+      "reason": "패턴 startup_folder_change (수준 11)"
+    },
+    {
+      "alertId": "ps-04",
+      "action": "block",
+      "confidence": 0.93,
+      "reason": "패턴 unsigned_new_service, repeated_service_registration (수준 12)"
+    },
+    {
+      "alertId": "ps-05",
+      "action": "block",
+      "confidence": 0.88,
+      "reason": "패턴 service_or_task_from_temp_folder (수준 10)"
+    },
+    {
+      "alertId": "ps-06",
+      "action": "block",
+      "confidence": 0.93,
+      "reason": "패턴 service_or_task_from_temp_folder, unsigned_new_service (수준 12)"
+    },
+    {
+      "alertId": "ps-07",
+      "action": "block",
+      "confidence": 0.89,
+      "reason": "패턴 service_or_task_from_temp_folder (수준 11)"
+    },
+    {
+      "alertId": "ps-08",
+      "action": "block",
+      "confidence": 0.9,
+      "reason": "패턴 service_or_task_from_temp_folder (수준 12)"
+    },
+    {
+      "alertId": "ps-09",
+      "action": "alert",
+      "confidence": 0.59,
+      "reason": "T1053 기법 표식만 있음 (수준 6)"
+    },
+    {
+      "alertId": "ps-10",
+      "action": "alert",
+      "confidence": 0.61,
+      "reason": "T1543 기법 표식만 있음 (수준 7)"
+    },
+    {
+      "alertId": "ps-11",
+      "action": "alert",
+      "confidence": 0.57,
+      "reason": "T1543 기법 표식만 있음 (수준 5)"
+    },
+    {
+      "alertId": "ps-12",
+      "action": "alert",
+      "confidence": 0.59,
+      "reason": "T1053 기법 표식만 있음 (수준 6)"
+    },
+    {
+      "alertId": "ps-13",
+      "action": "alert",
+      "confidence": 0.7,
+      "reason": "패턴 service_or_task_from_temp_folder (수준 8)"
+    },
+    {
+      "alertId": "ps-14",
+      "action": "alert",
+      "confidence": 0.59,
+      "reason": "T1543 기법 표식만 있음 (수준 6)"
+    },
+    {
+      "alertId": "ps-15",
+      "action": "alert",
+      "confidence": 0.61,
+      "reason": "T1053 기법 표식만 있음 (수준 7)"
+    },
+    {
+      "alertId": "ps-16",
+      "action": "alert",
+      "confidence": 0.57,
+      "reason": "T1543 기법 표식만 있음 (수준 5)"
+    },
+    {
+      "alertId": "ps-17",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "알려진 패턴 없음 (수준 3)"
+    },
+    {
+      "alertId": "ps-18",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "T1053 기법 표식만 있음 (수준 2)"
+    },
+    {
+      "alertId": "ps-19",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "T1543 기법 표식만 있음 (수준 3)"
+    },
+    {
+      "alertId": "ps-20",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "알려진 패턴 없음 (수준 2)"
+    },
+    {
+      "alertId": "ps-21",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "알려진 패턴 없음 (수준 3)"
+    },
+    {
+      "alertId": "ps-22",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "알려진 패턴 없음 (수준 3)"
+    },
+    {
+      "alertId": "ps-23",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "T1053 기법 표식만 있음 (수준 2)"
+    },
+    {
+      "alertId": "ps-24",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "알려진 패턴 없음 (수준 3)"
+    }
+  ],
+  "counts": {
+    "block": 8,
+    "alert": 8,
+    "record": 8
+  }
+}

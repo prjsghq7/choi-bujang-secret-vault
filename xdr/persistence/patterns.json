@@ -1,0 +1,50 @@
+{
+  "schema": "aleph.xdr.patterns.v1",
+  "moduleKey": "persistence",
+  "mitre": [
+    "T1543",
+    "T1053"
+  ],
+  "patterns": [
+    {
+      "name": "service_or_task_from_temp_folder",
+      "condition": {
+        "fields": [
+          "path"
+        ],
+        "regex": "\\\\AppData\\\\Local\\\\Temp\\\\[^\\\\]+\\.(exe|dll|bat|cmd|ps1|vbs)$"
+      },
+      "basis": "T1543·T1053: 임시 폴더 실행 파일을 서비스·예약 작업으로 등록하는 지속성 기법"
+    },
+    {
+      "name": "startup_folder_change",
+      "condition": {
+        "fields": [
+          "path"
+        ],
+        "regex": "\\\\Start Menu\\\\Programs\\\\Startup\\\\"
+      },
+      "basis": "T1543 계열 지속성: 시작 폴더에 평소 목록에 없는 프로그램 추가"
+    },
+    {
+      "name": "unsigned_new_service",
+      "condition": {
+        "fields": [
+          "description"
+        ],
+        "regex": "서명 없는|서명이 없"
+      },
+      "basis": "T1543: 서명 없는 새 서비스 등록·서비스 실행 파일 교체"
+    },
+    {
+      "name": "repeated_service_registration",
+      "condition": {
+        "fields": [
+          "count"
+        ],
+        "min": 2
+      },
+      "basis": "T1543: 원격 주소에서 서비스 등록이 반복됨"
+    }
+  ]
+}
