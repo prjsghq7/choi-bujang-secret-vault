@@ -1,0 +1,50 @@
+{
+  "schema": "aleph.xdr.patterns.v1",
+  "moduleKey": "privilege",
+  "mitre": [
+    "T1068",
+    "T1078"
+  ],
+  "patterns": [
+    {
+      "name": "added_to_admin_group",
+      "condition": {
+        "fields": [
+          "group"
+        ],
+        "regex": "^(administrators|admins?|domain admins|sudo|wheel)$"
+      },
+      "basis": "T1078: 평범한 계정이 관리자 그룹에 추가됨"
+    },
+    {
+      "name": "unfamiliar_admin_command",
+      "condition": {
+        "fields": [
+          "description"
+        ],
+        "regex": "처음 보는|다른 계정의 권한|관리자 권한으로 바뀌"
+      },
+      "basis": "T1068: 처음 보는 곳·다른 계정 권한으로 관리자 명령 실행"
+    },
+    {
+      "name": "privilege_use_outside_hours",
+      "condition": {
+        "fields": [
+          "description"
+        ],
+        "regex": "수업 시간 밖|업무처럼 보이지 않는 시각|업무 시간 밖"
+      },
+      "basis": "T1078: 업무 시간 밖 권한 사용"
+    },
+    {
+      "name": "repeated_admin_grants",
+      "condition": {
+        "fields": [
+          "count"
+        ],
+        "min": 2
+      },
+      "basis": "T1078: 관리자 권한 부여가 반복됨"
+    }
+  ]
+}
