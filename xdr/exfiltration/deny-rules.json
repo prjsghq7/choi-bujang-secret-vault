@@ -1,0 +1,116 @@
+{
+  "schema": "aleph.xdr.deny-rules.v1",
+  "moduleKey": "exfiltration",
+  "generatedAt": "2026-10-14T00:40:07.669Z",
+  "rules": [
+    {
+      "id": "xdr-exfiltration-ex-01",
+      "effect": "deny",
+      "match": {
+        "srcip": "192.0.2.20"
+      },
+      "reasonCode": "xdr_exfiltration",
+      "evidence": [
+        "ex-01",
+        "ex-02"
+      ],
+      "expiresAt": "2026-10-14T01:40:07.669Z"
+    },
+    {
+      "id": "xdr-exfiltration-ex-03",
+      "effect": "deny",
+      "match": {
+        "srcip": "198.51.100.20"
+      },
+      "reasonCode": "xdr_exfiltration",
+      "evidence": [
+        "ex-03"
+      ],
+      "expiresAt": "2026-10-14T01:40:07.669Z"
+    },
+    {
+      "id": "xdr-exfiltration-ex-04",
+      "effect": "deny",
+      "match": {
+        "srcip": "203.0.113.20"
+      },
+      "reasonCode": "xdr_exfiltration",
+      "evidence": [
+        "ex-04"
+      ],
+      "expiresAt": "2026-10-14T01:40:07.669Z"
+    },
+    {
+      "id": "xdr-exfiltration-ex-05",
+      "effect": "deny",
+      "match": {
+        "srcip": "192.0.2.25"
+      },
+      "reasonCode": "xdr_exfiltration",
+      "evidence": [
+        "ex-05"
+      ],
+      "expiresAt": "2026-10-14T01:40:07.669Z"
+    },
+    {
+      "id": "xdr-exfiltration-ex-06",
+      "effect": "deny",
+      "match": {
+        "srcip": "198.51.100.25"
+      },
+      "reasonCode": "xdr_exfiltration",
+      "evidence": [
+        "ex-06"
+      ],
+      "expiresAt": "2026-10-14T01:40:07.669Z"
+    },
+    {
+      "id": "xdr-exfiltration-ex-07",
+      "effect": "deny",
+      "match": {
+        "srcip": "203.0.113.25"
+      },
+      "reasonCode": "xdr_exfiltration",
+      "evidence": [
+        "ex-07"
+      ],
+      "expiresAt": "2026-10-14T01:40:07.669Z"
+    },
+    {
+      "id": "xdr-exfiltration-ex-08",
+      "effect": "deny",
+      "match": {
+        "srcip": "192.0.2.26"
+      },
+      "reasonCode": "xdr_exfiltration",
+      "evidence": [
+        "ex-08"
+      ],
+      "expiresAt": "2026-10-14T01:40:07.669Z"
+    },
+    {
+      "id": "xdr-exfiltration-ex-09",
+      "effect": "deny",
+      "match": {
+        "srcip": "198.51.100.26"
+      },
+      "reasonCode": "xdr_exfiltration",
+      "evidence": [
+        "ex-09"
+      ],
+      "expiresAt": "2026-10-14T01:40:07.669Z"
+    },
+    {
+      "id": "xdr-exfiltration-ex-10",
+      "effect": "deny",
+      "match": {
+        "srcip": "203.0.113.26"
+      },
+      "reasonCode": "xdr_exfiltration",
+      "evidence": [
+        "ex-10"
+      ],
+      "expiresAt": "2026-10-14T01:40:07.669Z"
+    }
+  ]
+}

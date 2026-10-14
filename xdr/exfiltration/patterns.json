@@ -1,0 +1,50 @@
+{
+  "schema": "aleph.xdr.patterns.v1",
+  "moduleKey": "exfiltration",
+  "mitre": [
+    "T1041",
+    "T1048"
+  ],
+  "patterns": [
+    {
+      "name": "bulk_transfer_to_new_destination",
+      "condition": {
+        "fields": [
+          "bytes"
+        ],
+        "min": 50000000
+      },
+      "basis": "T1048·T1041: 처음 보는 목적지로 대용량(50MB 이상) 전송"
+    },
+    {
+      "name": "many_files_at_once",
+      "condition": {
+        "fields": [
+          "files"
+        ],
+        "min": 50
+      },
+      "basis": "T1041: 한 번에 많은 자료(50건 이상)가 나감"
+    },
+    {
+      "name": "repeated_transfers",
+      "condition": {
+        "fields": [
+          "count"
+        ],
+        "min": 5
+      },
+      "basis": "T1041·T1048: 같은 목적지로 전송이 반복됨"
+    },
+    {
+      "name": "archive_out_of_hours",
+      "condition": {
+        "fields": [
+          "description"
+        ],
+        "regex": "(수업|업무) 시간 밖.*(압축|전송)|압축 파일.*처음 보는"
+      },
+      "basis": "T1048: 업무 시간 밖 압축 파일 반출"
+    }
+  ]
+}

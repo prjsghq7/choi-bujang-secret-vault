@@ -1,0 +1,191 @@
+{
+  "schema": "aleph.xdr.result.v1",
+  "moduleKey": "exfiltration",
+  "decisions": [
+    {
+      "alertId": "ex-01",
+      "action": "block",
+      "confidence": 0.93,
+      "reason": "패턴 bulk_transfer_to_new_destination, many_files_at_once (수준 12)"
+    },
+    {
+      "alertId": "ex-02",
+      "action": "block",
+      "confidence": 0.93,
+      "reason": "패턴 bulk_transfer_to_new_destination, archive_out_of_hours (수준 12)"
+    },
+    {
+      "alertId": "ex-03",
+      "action": "block",
+      "confidence": 0.92,
+      "reason": "패턴 bulk_transfer_to_new_destination, repeated_transfers (수준 11)"
+    },
+    {
+      "alertId": "ex-04",
+      "action": "block",
+      "confidence": 0.93,
+      "reason": "패턴 bulk_transfer_to_new_destination, many_files_at_once (수준 12)"
+    },
+    {
+      "alertId": "ex-05",
+      "action": "block",
+      "confidence": 0.91,
+      "reason": "패턴 bulk_transfer_to_new_destination, many_files_at_once (수준 10)"
+    },
+    {
+      "alertId": "ex-06",
+      "action": "block",
+      "confidence": 0.96,
+      "reason": "패턴 bulk_transfer_to_new_destination, repeated_transfers, archive_out_of_hours (수준 12)"
+    },
+    {
+      "alertId": "ex-07",
+      "action": "block",
+      "confidence": 0.92,
+      "reason": "패턴 bulk_transfer_to_new_destination, archive_out_of_hours (수준 11)"
+    },
+    {
+      "alertId": "ex-08",
+      "action": "block",
+      "confidence": 0.93,
+      "reason": "패턴 bulk_transfer_to_new_destination, many_files_at_once (수준 12)"
+    },
+    {
+      "alertId": "ex-09",
+      "action": "block",
+      "confidence": 0.91,
+      "reason": "패턴 bulk_transfer_to_new_destination, repeated_transfers (수준 10)"
+    },
+    {
+      "alertId": "ex-10",
+      "action": "block",
+      "confidence": 0.9,
+      "reason": "패턴 bulk_transfer_to_new_destination (수준 12)"
+    },
+    {
+      "alertId": "ex-11",
+      "action": "alert",
+      "confidence": 0.59,
+      "reason": "T1048 기법 표식만 있음 (수준 6)"
+    },
+    {
+      "alertId": "ex-12",
+      "action": "alert",
+      "confidence": 0.61,
+      "reason": "T1041 기법 표식만 있음 (수준 7)"
+    },
+    {
+      "alertId": "ex-13",
+      "action": "alert",
+      "confidence": 0.57,
+      "reason": "T1048 기법 표식만 있음 (수준 5)"
+    },
+    {
+      "alertId": "ex-14",
+      "action": "alert",
+      "confidence": 0.59,
+      "reason": "T1048 기법 표식만 있음 (수준 6)"
+    },
+    {
+      "alertId": "ex-15",
+      "action": "alert",
+      "confidence": 0.63,
+      "reason": "T1041 기법 표식만 있음 (수준 8)"
+    },
+    {
+      "alertId": "ex-16",
+      "action": "alert",
+      "confidence": 0.59,
+      "reason": "T1048 기법 표식만 있음 (수준 6)"
+    },
+    {
+      "alertId": "ex-17",
+      "action": "alert",
+      "confidence": 0.61,
+      "reason": "T1041 기법 표식만 있음 (수준 7)"
+    },
+    {
+      "alertId": "ex-18",
+      "action": "alert",
+      "confidence": 0.57,
+      "reason": "T1048 기법 표식만 있음 (수준 5)"
+    },
+    {
+      "alertId": "ex-19",
+      "action": "alert",
+      "confidence": 0.59,
+      "reason": "T1041 기법 표식만 있음 (수준 6)"
+    },
+    {
+      "alertId": "ex-20",
+      "action": "alert",
+      "confidence": 0.61,
+      "reason": "T1048 기법 표식만 있음 (수준 7)"
+    },
+    {
+      "alertId": "ex-21",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "알려진 패턴 없음 (수준 3)"
+    },
+    {
+      "alertId": "ex-22",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "알려진 패턴 없음 (수준 2)"
+    },
+    {
+      "alertId": "ex-23",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "T1048 기법 표식만 있음 (수준 3)"
+    },
+    {
+      "alertId": "ex-24",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "알려진 패턴 없음 (수준 3)"
+    },
+    {
+      "alertId": "ex-25",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "알려진 패턴 없음 (수준 2)"
+    },
+    {
+      "alertId": "ex-26",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "알려진 패턴 없음 (수준 3)"
+    },
+    {
+      "alertId": "ex-27",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "알려진 패턴 없음 (수준 3)"
+    },
+    {
+      "alertId": "ex-28",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "알려진 패턴 없음 (수준 2)"
+    },
+    {
+      "alertId": "ex-29",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "알려진 패턴 없음 (수준 3)"
+    },
+    {
+      "alertId": "ex-30",
+      "action": "record",
+      "confidence": 0.05,
+      "reason": "알려진 패턴 없음 (수준 3)"
+    }
+  ],
+  "counts": {
+    "block": 10,
+    "alert": 10,
+    "record": 10
+  }
+}
