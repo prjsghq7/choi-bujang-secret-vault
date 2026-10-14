@@ -4,7 +4,7 @@ import { contentHash, planToken, selectRestoreRecord, verifiedPolicyDiff, verify
 import { appendRestoreAudit, listBackupIds, readVerifiedBackup } from '../src/note-backup.mjs';
 import { RULE_IDS } from '../src/decider.mjs';
 import { retestPolicies } from '../src/retest.mjs';
-import { hasDeviceSignature, verifyDeviceRequest } from '../src/device-auth.mjs';
+import { attachRequestId, hasDeviceSignature, verifyDeviceRequest } from '../src/device-auth.mjs';
 
 const verifierConfig = {
   judgeIssuer: 'https://aleph-judge-production.up.railway.app/defense/judge',
@@ -59,6 +59,7 @@ async function notePreview(url, key, headers, identity, id, files) {
 }
 
 export default async function handler(request, response) {
+  attachRequestId(request, response);
   if (!['GET', 'POST'].includes(request.method)) { response.setHeader('Allow', 'GET, POST'); return response.status(405).json({ error: 'Method not allowed' }); }
   const authorization = request.headers.authorization ?? '';
   if (!authorization.startsWith('Bearer ')) return response.status(401).json({ error: 'Authentication required' });

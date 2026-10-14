@@ -46,6 +46,11 @@ cases.push(['서명 뒤 수정 본문 변경 → 거부', await run({ ...bodyCha
 const normal = await signedRequest('PATCH', '/api/notes', { id: 1, content: '정상 수정' });
 cases.push(['승인 기기의 정상 서명 요청 → 허용', await run(normal), 'ok']);
 cases.push(['같은 서명 재전송 → 거부', await run(normal), 'device_signature_replayed']);
+register('revoked');
+cases.push(['회수된 기기의 서명 요청 → 거부', await run(await signedRequest('GET', '/api/notes?id=1')), 'device_revoked']);
+register('approved');
+objects.set(`revocations/${owner}.json`, JSON.stringify({ owner_id: owner, status: 'revoked' }));
+cases.push(['회수된 신원으로 다시 전송 → 거부', await run(await signedRequest('GET', '/api/notes?id=1')), 'identity_revoked']);
 
 let failed = false;
 for (const [name, result, expected] of cases) {

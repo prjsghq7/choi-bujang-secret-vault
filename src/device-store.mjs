@@ -52,6 +52,42 @@ export async function writeDevice(url, key, device) {
   try { return await put(url, key, path, device, true) === 'created'; } catch { return false; }
 }
 
+export async function listDevices(url, key, ownerId) {
+  if (!UUID.test(String(ownerId))) return [];
+  try {
+    const response = await fetch(`${url}/storage/v1/object/list/${DEVICE_BUCKET}`, {
+      method: 'POST', headers: headers(key, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ prefix: `devices/${ownerId}/`, limit: 50, offset: 0 }),
+    });
+    if (!response.ok) return [];
+    const items = await response.json();
+    const ids = Array.isArray(items) ? items.map(item => /^([0-9a-f]{16})\.json$/u.exec(item?.name ?? '')?.[1]).filter(Boolean) : [];
+    return (await Promise.all(ids.map(id => readDevice(url, key, ownerId, id)))).filter(Boolean);
+  } catch { return []; }
+}
+
+// 12단계: a revoked identity stays revoked. Records are insert-only so a revocation cannot be undone by a request.
+const revocationPath = ownerId => UUID.test(String(ownerId)) ? `revocations/${ownerId}.json` : null;
+
+export async function readRevocation(url, key, ownerId) {
+  const path = revocationPath(ownerId);
+  if (!path) return null;
+  try {
+    const response = await fetch(`${url}/storage/v1/object/authenticated/${DEVICE_BUCKET}/${path}`,
+      { headers: headers(key), cache: 'no-store' });
+    if (!response.ok) return null;
+    const record = await response.json();
+    return record?.owner_id === ownerId && record?.status === 'revoked' ? record : null;
+  } catch { return null; }
+}
+
+export async function writeRevocation(url, key, ownerId, reason) {
+  const path = revocationPath(ownerId);
+  if (!path) return false;
+  const record = { schema: 'aleph.revocation.v1', owner_id: ownerId, status: 'revoked', reason, revokedAt: new Date().toISOString() };
+  try { return ['created', 'exists'].includes(await put(url, key, path, record, false)); } catch { return false; }
+}
+
 // Each signed-request nonce can be used once per device. A second use is a replay.
 export async function claimNonce(url, key, deviceId, nonce) {
   if (!DEVICE_ID.test(String(deviceId)) || !NONCE.test(String(nonce))) return false;

@@ -1,6 +1,14 @@
 import { createHash, createPublicKey, randomUUID, verify } from 'node:crypto';
 import { decide } from './decider.mjs';
-import { claimNonce, readDevice } from './device-store.mjs';
+import { claimNonce, readDevice, readRevocation } from './device-store.mjs';
+
+// Every API response carries a request ID so measured results can be matched to server records.
+export function attachRequestId(request, response) {
+  const incoming = request.headers?.['x-request-id'];
+  const id = typeof incoming === 'string' && /^[0-9a-f-]{36}$/iu.test(incoming) ? incoming : randomUUID();
+  response.setHeader('X-Request-Id', id);
+  return id;
+}
 
 export const SIGNATURE_SCHEME = 'aleph-device-v1';
 const MAX_SKEW_MS = 60_000;
@@ -60,10 +68,13 @@ export async function verifyDeviceRequest(request, identity, { url, key, now = D
   if (!deviceId || !timestamp || !nonce || !signature) return { ok: false, status: 401, reason: 'device_signature_required' };
   const signedAt = Date.parse(timestamp);
   if (!Number.isFinite(signedAt) || Math.abs(now - signedAt) > MAX_SKEW_MS) return { ok: false, status: 401, reason: 'device_signature_expired' };
+  // 12단계: a revoked identity is refused on every later request, whatever device it uses.
+  if (await readRevocation(url, key, identity.userId)) return { ok: false, status: 403, reason: 'identity_revoked' };
   const device = await readDevice(url, key, identity.userId, deviceId);
   if (!device || deviceIdFor(device.publicKey) !== deviceId) return { ok: false, status: 403, reason: 'device_not_registered' };
   const text = canonicalRequest({ method: request.method, path: request.url, body: request.body, timestamp, nonce, deviceId });
   if (!verifySignature(device.publicKey, text, signature)) return { ok: false, status: 401, reason: 'device_signature_invalid' };
+  if (device.status === 'revoked') return { ok: false, status: 403, reason: 'device_revoked', deviceId };
   if (device.status !== 'approved') return { ok: false, status: 403, reason: 'device_not_approved', deviceId };
   if (!await claimNonce(url, key, deviceId, nonce)) return { ok: false, status: 401, reason: 'device_signature_replayed' };
   return { ok: true, deviceId, deviceRegistered: true };

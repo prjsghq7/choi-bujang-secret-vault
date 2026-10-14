@@ -158,3 +158,35 @@
 | 서명 없는 `/api/notes` 요청 | `401` | `npm run bundle` 자기 점검에서 실행 |
 
 로컬 연습: `npm run device:test` — 가상 기기 등록부로 서명 없음·경로 변경·본문 변경·재전송·미승인 기기는 거부, 승인 기기의 정상 서명 요청만 허용되는지 확인합니다. 실제 심판 판정이 아닙니다.
+
+## 12단계: 탈환 작전실과 총공세 대비
+
+### 회수된 신원·기기 차단
+- 비공개 Storage 버킷 `devices`의 `revocations/<owner_id>.json`(덮어쓰기 금지)에 회수된 신원을 기록합니다. `src/device-auth.mjs`의 `verifyDeviceRequest`가 서명 검사 전에 이를 읽어 **회수된 신원으로 다시 보낸 요청은 어떤 기기로 보내도 `403 identity_revoked`** 로 거부합니다. `/api/device`도 회수된 신원의 기기 등록·승인·조회를 거부합니다.
+- 회수된 기기는 `403 device_revoked`이며 다시 승인할 수 없습니다(새 기기 키로 새 승인 필요). 미등록 기기는 `403 device_not_registered`.
+- 회수 적용: `POST /api/device {"action":"revoke","deviceId"}`(기기 하나), `POST /api/device {"action":"revoke_identity","confirmed":true,"reason":"burst_read"}`(신원 전체, 되돌릴 수 없음). 9단계 `detect()`의 `propose_revocation`은 제안이며, 회수는 이 경로로 명시적으로 적용합니다.
+- 모든 API 응답에 `X-Request-Id` 헤더를 붙여 실측 결과와 서버 기록을 맞춰 볼 수 있습니다.
+
+### 탈환 작전실 화면 (`/` → 기기 승인 뒤 「탈환 작전실」)
+- `GET /api/ops`(로그인 + 승인된 기기 서명 필수)가 실제 서버 상태를 돌려줍니다: 판정기 `RULE_IDS`, 탐지 규칙(`burst_read`, 10분 120건 초과 → `propose_revocation`, 실사건은 엔진 미연결로 **미실행**), 회수 상태(신원 회수 여부, 기기 승인·대기·회수 수), 복구 버전(`backups/manifest.json` 재검증 결과와 버전, 비공개 메모 사본 수), 서버 측 6~9단계 판정 재시험 수.
+- 메모 본문·키·토큰·다른 사용자의 자료는 응답과 화면에 넣지 않습니다. 화면의 성공 문구를 통과 근거로 쓰지 않습니다.
+
+### 1~11단계 실측 표 만드는 절차
+1. 배포가 끝난 뒤 `npm run ops:check`를 실행합니다.
+2. 스크립트가 실제 배포 주소에 정상·금지 요청을 보내고 단계, 시험, 기대 결과, 실제 상태코드·이유, 요청 ID(`X-Request-Id`), 확인 시각을 `docs/OPS_RESULTS.md`와 `public/ops-results.json`에 씁니다.
+3. 판정기·탐지기는 같은 표에 `local`(로컬 연습)로 따로 표시합니다.
+4. 실제 계정 토큰이나 승인된 기기 키가 필요한 요청(정상 서명 CRUD, B의 A 메모 조회, 회수된 신원 재전송, 변조 후 복구 등)은 **`not_run`(미실행)** 으로 남깁니다. 심판의 41종 시험 결과를 임의로 통과로 적지 않습니다.
+5. 작전실 화면은 `/ops-results.json`을 그대로 읽어 표로 보여 줍니다.
+
+### 설치·실행·중지·복구 안내 (검사 기준 커밋: README를 포함한 최신 「12단계 저장점」)
+- **설치**: `git clone https://github.com/prjsghq7/choi-bujang-secret-vault && cd choi-bujang-secret-vault && npm install` (Node 22 이상).
+- **로컬 확인**: `npm test`(복구·판정기·구역·탐지·기기 서명 연습), `npm run build`(Vercel 밖에서는 `public/aleph.json`을 만들지 않음).
+- **실행(배포)**: GitHub `main`에 푸시하면 Vercel이 빌드합니다. Vercel 환경변수 `SUPABASE_URL`, `SUPABASE_SECRET_KEY`는 Vercel 설정 화면에만 넣고 저장소·제출 묶음에 넣지 않습니다.
+- **접속 앱**: 배포 주소를 열고 로그인 → 기기 승인 요청 → 비밀번호 재확인 → 승인 뒤 메모·작전실 사용. 설치형 앱(manifest)으로 설치해도 같은 승인을 거칩니다.
+- **중지**: 기기 하나는 `revoke`, 계정 전체는 `revoke_identity`로 즉시 접근을 끊습니다. 서비스 전체 중지는 Vercel 프로젝트의 배포를 일시 중지(Pause)합니다.
+- **복구**: 10단계 절차(`GET /api/restore?id=` 미리 보기 → `confirmed`+`planToken` POST). 사본 무결성이 맞지 않으면 복구는 멈춥니다. 코드 되돌리기는 `git revert`로 단계 커밋만 되돌리며 `reset --hard`는 쓰지 않습니다.
+
+### 출처: 제공 엔진과 학생 작업
+- **ALEPH SDP 엔진(제공)**: 반 엔진의 신원·기기·경로 확인과 `aleph.decision.v1` 계약(`docs/DECIDER_REQUEST.md`), 심판 토큰 발급자(`judgeIssuer`), 시작 틀의 `src/verify-login.mjs`, `scripts/bundle.mjs`, `scripts/deployment-identity.mjs`, `scripts/decider-test.mjs`·`fixture-7.mjs`·`detect-test.mjs`의 연습 형식은 운영 측이 제공한 것입니다.
+- **학생 작업**: `src/decider.mjs`(6~8 규칙), `src/detect.mjs`(9), `src/restore.mjs`·`src/note-backup.mjs`·`backups/`(10), `src/device-auth.mjs`·`src/device-store.mjs`·`api/device.js`·`public/` 접속 앱(11), `api/ops.js`·`scripts/ops-check.mjs`·회수 적용(12), 그리고 `api/notes.js`·`api/restore.js`의 연결.
+- 비밀값(서버 키, 토큰, 비밀번호, 기기 개인키)은 어떤 파일에도 포장하지 않습니다.

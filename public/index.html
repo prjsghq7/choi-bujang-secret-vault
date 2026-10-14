@@ -21,7 +21,12 @@
 <template id="vaultTemplate"><h2>메모</h2><button id="logout">로그아웃</button>
 <form id="add"><input id="title" placeholder="제목" required><input id="content" placeholder="내용" required><button>메모 추가</button></form>
 <form id="open"><input id="openId" placeholder="메모 ID" inputmode="numeric" required><button>ID로 열기</button></form>
-<p id="appMsg" class="error"></p><ul id="notes"></ul></template>
+<p id="appMsg" class="error"></p><ul id="notes"></ul>
+<h2>탈환 작전실</h2>
+<p class="note">서버가 지금 돌려준 값(<code>/api/ops</code>)과 실측 표(<code>/ops-results.json</code>)만 표시합니다. 메모 본문은 보이지 않으며, 미실행 항목은 미실행으로 남깁니다.</p>
+<button id="opsBtn">작전실 새로고침</button>
+<div id="ops"></div>
+<table id="opsTable"></table></template>
 
 <script type="module">
 const $ = id => document.getElementById(id);
@@ -46,6 +51,30 @@ function mountVault() {
   $('add').onsubmit = async e => { e.preventDefault(); await save(await signed('POST', '/api/notes', { title: $('title').value, content: $('content').value })); e.target.reset(); };
   $('open').onsubmit = async e => { e.preventDefault(); await save(await signed('GET', '/api/notes?id=' + encodeURIComponent($('openId').value.trim()))); };
   $('logout').onclick = () => { token = ''; keys = null; approved = false; deviceId = ''; setBadge('확인 전', false); view('login'); };
+  $('opsBtn').onclick = loadOps;
+}
+
+const line = (label, value) => { const p = document.createElement('p'); p.textContent = `${label}: ${value}`; return p; };
+async function loadOps() {
+  const r = await signed('GET', '/api/ops');
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { $('ops').replaceChildren(line('작전실 응답', `${r.status} ${d.reason ?? d.error ?? ''}`)); return; }
+  $('ops').replaceChildren(
+    line('요청 ID · 확인 시각', `${d.requestId} · ${d.checkedAt}`),
+    line('판정기 규칙', d.decider.ruleIds.join(', ')),
+    line('탐지 규칙', `${d.detection.rule} (${d.detection.threshold}) → ${d.detection.action} · 실사건: ${d.detection.liveEvents === 'not_run' ? '미실행(엔진 미연결)' : d.detection.liveEvents}`),
+    line('회수 상태', `신원 회수 ${d.revocation.identityRevoked ? '예' : '아니오'} · 기기 승인 ${d.revocation.devices.approved} / 대기 ${d.revocation.devices.pending} / 회수 ${d.revocation.devices.revoked}`),
+    line('복구 버전', `${d.restore.version ?? '검증 실패'} · 사본 무결성 ${d.restore.manifestVerified ? '확인' : '실패'} · 비공개 메모 사본 ${d.restore.privateNoteBackups}건`),
+    line('판정 재시험(서버 연습)', `${d.retest.passed} / ${d.retest.total}`));
+  const res = await fetch('/ops-results.json', { cache: 'no-store' });
+  const table = res.ok ? await res.json() : null;
+  if (!table) { $('opsTable').replaceChildren(); return; }
+  const label = { pass: '통과', fail: '실패', not_run: '미실행' };
+  const row = (cells, tag = 'td') => { const tr = document.createElement('tr'); for (const c of cells) { const el = document.createElement(tag); el.textContent = c ?? '-'; tr.append(el); } return tr; };
+  $('opsTable').replaceChildren(
+    row([`실측 표 ${table.generatedAt} · 통과 ${table.summary.pass} · 실패 ${table.summary.fail} · 미실행 ${table.summary.notRun}`], 'th'),
+    row(['단계', '시험', '종류', '기대', '실제', '요청 ID', '확인 시각', '결과'], 'th'),
+    ...table.rows.map(r => row([r.stage, r.name, r.kind, r.expected, r.status === null ? '-' : `${r.status}${r.reason ? ' ' + r.reason : ''}`, r.requestId, r.checkedAt, label[r.result]])));
 }
 
 async function api(path, options = {}) {

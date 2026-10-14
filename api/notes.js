@@ -1,7 +1,7 @@
 import { createLoginVerifier } from '../src/verify-login.mjs';
 import { contentHash } from '../src/restore.mjs';
 import { captureNoteBackup } from '../src/note-backup.mjs';
-import { decideNotesRequest, hasDeviceSignature, verifyDeviceRequest } from '../src/device-auth.mjs';
+import { attachRequestId, decideNotesRequest, hasDeviceSignature, verifyDeviceRequest } from '../src/device-auth.mjs';
 
 const verifierConfig = {
   judgeIssuer: 'https://aleph-judge-production.up.railway.app/defense/judge',
@@ -17,6 +17,7 @@ function notePayload(body) {
 }
 
 export default async function handler(request, response) {
+  attachRequestId(request, response);
   const authorization = request.headers.authorization ?? '';
   if (!authorization.startsWith('Bearer ')) return response.status(401).json({ error: 'Authentication required' });
   // No device signature → 401 before any storage access, so no protected data can be returned.

@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { createLoginVerifier } from '../src/verify-login.mjs';
-import { deviceIdFor, publicKeyJwk, verifySignature } from '../src/device-auth.mjs';
-import { readDevice, writeDevice } from '../src/device-store.mjs';
+import { attachRequestId, deviceIdFor, publicKeyJwk, verifySignature } from '../src/device-auth.mjs';
+import { readDevice, readRevocation, writeDevice, writeRevocation } from '../src/device-store.mjs';
 
 const verifierConfig = {
   judgeIssuer: 'https://aleph-judge-production.up.railway.app/defense/judge',
@@ -26,6 +26,7 @@ async function passwordMatches(url, key, userId, password) {
 const view = device => ({ deviceId: device.deviceId, status: device.status, requestedAt: device.requestedAt, approvedAt: device.approvedAt ?? null });
 
 export default async function handler(request, response) {
+  attachRequestId(request, response);
   if (!['GET', 'POST'].includes(request.method)) { response.setHeader('Allow', 'GET, POST'); return response.status(405).json({ error: 'Method not allowed' }); }
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SECRET_KEY;
@@ -37,6 +38,8 @@ export default async function handler(request, response) {
     const identity = await verify(authorization);
     if (!identity) return response.status(401).json({ error: 'Invalid authentication token' });
     const body = request.body && typeof request.body === 'object' ? request.body : {};
+    // A revoked identity cannot register, approve or even read device state again.
+    if (await readRevocation(url, key, identity.userId)) return response.status(403).json({ error: 'Identity has been revoked', reason: 'identity_revoked' });
 
     // Status: the server's record is the only source of the approval state.
     if (request.method === 'GET') {
@@ -53,6 +56,7 @@ export default async function handler(request, response) {
       const deviceId = deviceIdFor(publicKey);
       const existing = await readDevice(url, key, identity.userId, deviceId);
       if (existing?.status === 'approved') return response.status(200).json(view(existing));
+      if (existing?.status === 'revoked') return response.status(403).json({ error: 'This device key was revoked; create a new key', reason: 'device_revoked' });
       const device = { schema: 'aleph.device.v1', deviceId, owner_id: identity.userId, publicKey, status: 'pending',
         requestedAt: new Date().toISOString(), challenge: randomBytes(32).toString('hex'),
         challengeExpiresAt: new Date(Date.now() + CHALLENGE_TTL_MS).toISOString() };
@@ -66,6 +70,7 @@ export default async function handler(request, response) {
       const device = await readDevice(url, key, identity.userId, body.deviceId);
       if (!device) return response.status(404).json({ error: 'Device not found' });
       if (device.status === 'approved') return response.status(200).json(view(device));
+      if (device.status === 'revoked') return response.status(403).json({ error: 'A revoked device cannot be approved again', reason: 'device_revoked' });
       if (!device.challenge || Date.parse(device.challengeExpiresAt) < Date.now()) return response.status(410).json({ error: 'Approval challenge expired; request approval again' });
       if (!verifySignature(device.publicKey, `aleph-device-approve-v1\n${device.deviceId}\n${device.challenge}`, body.signature)) {
         return response.status(401).json({ error: 'Device key proof failed' });
@@ -76,6 +81,23 @@ export default async function handler(request, response) {
       const approved = { ...device, status: 'approved', approvedAt: new Date().toISOString(), challenge: null, challengeExpiresAt: null };
       if (!await writeDevice(url, key, approved)) return response.status(502).json({ error: 'Device registry request failed' });
       return response.status(200).json(view(approved));
+    }
+    // 3) Revoke one device of this account. Revocation only removes access and cannot be undone.
+    if (body.action === 'revoke') {
+      const device = await readDevice(url, key, identity.userId, body.deviceId);
+      if (!device) return response.status(404).json({ error: 'Device not found' });
+      const revoked = { ...device, status: 'revoked', revokedAt: new Date().toISOString(), challenge: null, challengeExpiresAt: null };
+      if (!await writeDevice(url, key, revoked)) return response.status(502).json({ error: 'Device registry request failed' });
+      return response.status(200).json({ ...view(revoked), revokedAt: revoked.revokedAt });
+    }
+
+    // 4) Revoke this whole identity (e.g. after a burst_read revocation proposal). Every later request is refused.
+    if (body.action === 'revoke_identity') {
+      if (body.confirmed !== true) return response.status(428).json({ error: 'Confirm identity revocation; it cannot be undone' });
+      if (!await writeRevocation(url, key, identity.userId, typeof body.reason === 'string' ? body.reason.slice(0, 40) : 'owner_request')) {
+        return response.status(502).json({ error: 'Revocation request failed' });
+      }
+      return response.status(200).json({ status: 'revoked' });
     }
     return response.status(400).json({ error: 'Unknown device action' });
   } catch { return response.status(502).json({ error: 'Device request failed' }); }

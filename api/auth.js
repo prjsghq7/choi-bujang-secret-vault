@@ -1,4 +1,7 @@
+import { attachRequestId } from '../src/device-auth.mjs';
+
 export default async function handler(request, response) {
+  attachRequestId(request, response);
   if (request.method !== 'POST') { response.setHeader('Allow', 'POST'); return response.status(405).json({ error: 'Method not allowed' }); }
   const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_SECRET_KEY;
   const { email, password } = request.body || {};
