@@ -38,3 +38,17 @@ node scripts/xdr-run.mjs brute-force
 `npm run xdr:run -- brute-force` 도 같은 명령입니다. 실행기는 해당 경보마다 `decide` 를 부르고, 결과를 `xdr/<moduleKey>/result.json` 에 씁니다. 형식은 `aleph.xdr.result.v1` 이고, `decisions` 에는 경보 id·행동·확신도·이유가, `counts` 에는 `block`·`alert`·`record` 건수가 있습니다.
 
 반환 형식이 틀린 경보는 `record` 로 남고, 오류 한 줄이 출력됩니다. 실행기 자체는 네트워크를 쓰지 않습니다. 판정자는 격리된 환경에서 같은 명령을 다시 실행해 결과를 봅니다. 이미 커밋된 `result.json` 만으로 판정이 끝나지 않습니다.
+
+## 학생 구현 (xdr-03 ~ xdr-06)
+
+| 번호 | moduleKey | 근거 | 파일 |
+|---|---|---|---|
+| xdr-03 | `known-cve` | CVE-2021-44228, T1190 | `read-alerts.mjs`, `patterns.json`, `decide.mjs`, `respond.mjs`, `result.json` |
+| xdr-04 | `persistence` | T1543, T1053 | 같음 |
+| xdr-05 | `privilege` | T1068, T1078 | 같음 |
+| xdr-06 | `exfiltration` | T1041, T1048 | 같음 |
+
+- `decide.mjs`는 `patterns.json`의 패턴을 맨 위 상수로 옮겨 두고, import·파일 읽기/쓰기·네트워크 없이 경보 하나만 보고 답합니다. 확신도 0.85 이상 `block`, 0.5 이상 `alert`, 그 아래 `record`이며 `reason`에는 근거 패턴 이름을 적습니다.
+- `read-alerts.mjs`는 확인용(시각·출발 주소·계정·수준·설명만 출력, 비밀값처럼 보이는 값은 `[가림]`)이며 `decide.mjs`가 불러오지 않습니다.
+- `respond.mjs`는 `block` 결과만 출발 주소 거부 규칙(만료 1시간, 근거 경보 번호 포함)으로 `xdr/<moduleKey>/deny-rules.json`에 쓰고, `block`·`alert`를 `xdr/alerts.log`에 한 줄씩 쌓습니다. 정상(`record`) 이벤트가 나온 주소는 막지 않으며, `src/decider.mjs`의 기존 규칙은 고치지 않습니다.
+- 확인: `node xdr/<moduleKey>/read-alerts.mjs`, `npm run xdr:run -- <moduleKey>`, `node xdr/<moduleKey>/respond.mjs`.

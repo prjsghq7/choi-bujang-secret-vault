@@ -1,0 +1,92 @@
+{
+  "schema": "aleph.xdr.deny-rules.v1",
+  "moduleKey": "known-cve",
+  "generatedAt": "2026-10-14T00:40:06.772Z",
+  "rules": [
+    {
+      "id": "xdr-known-cve-kc-01",
+      "effect": "deny",
+      "match": {
+        "srcip": "203.0.113.10"
+      },
+      "reasonCode": "xdr_known_cve",
+      "evidence": [
+        "kc-01",
+        "kc-02"
+      ],
+      "expiresAt": "2026-10-14T01:40:06.772Z"
+    },
+    {
+      "id": "xdr-known-cve-kc-03",
+      "effect": "deny",
+      "match": {
+        "srcip": "198.51.100.16"
+      },
+      "reasonCode": "xdr_known_cve",
+      "evidence": [
+        "kc-03"
+      ],
+      "expiresAt": "2026-10-14T01:40:06.772Z"
+    },
+    {
+      "id": "xdr-known-cve-kc-04",
+      "effect": "deny",
+      "match": {
+        "srcip": "192.0.2.16"
+      },
+      "reasonCode": "xdr_known_cve",
+      "evidence": [
+        "kc-04"
+      ],
+      "expiresAt": "2026-10-14T01:40:06.772Z"
+    },
+    {
+      "id": "xdr-known-cve-kc-05",
+      "effect": "deny",
+      "match": {
+        "srcip": "203.0.113.24"
+      },
+      "reasonCode": "xdr_known_cve",
+      "evidence": [
+        "kc-05"
+      ],
+      "expiresAt": "2026-10-14T01:40:06.772Z"
+    },
+    {
+      "id": "xdr-known-cve-kc-06",
+      "effect": "deny",
+      "match": {
+        "srcip": "198.51.100.24"
+      },
+      "reasonCode": "xdr_known_cve",
+      "evidence": [
+        "kc-06"
+      ],
+      "expiresAt": "2026-10-14T01:40:06.772Z"
+    },
+    {
+      "id": "xdr-known-cve-kc-07",
+      "effect": "deny",
+      "match": {
+        "srcip": "192.0.2.24"
+      },
+      "reasonCode": "xdr_known_cve",
+      "evidence": [
+        "kc-07"
+      ],
+      "expiresAt": "2026-10-14T01:40:06.772Z"
+    },
+    {
+      "id": "xdr-known-cve-kc-08",
+      "effect": "deny",
+      "match": {
+        "srcip": "203.0.113.31"
+      },
+      "reasonCode": "xdr_known_cve",
+      "evidence": [
+        "kc-08"
+      ],
+      "expiresAt": "2026-10-14T01:40:06.772Z"
+    }
+  ]
+}

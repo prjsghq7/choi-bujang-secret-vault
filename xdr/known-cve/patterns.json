@@ -1,0 +1,45 @@
+{
+  "schema": "aleph.xdr.patterns.v1",
+  "moduleKey": "known-cve",
+  "mitre": [
+    "T1190"
+  ],
+  "patterns": [
+    {
+      "name": "jndi_lookup_in_header",
+      "condition": {
+        "fields": [
+          "useragent",
+          "referer",
+          "xforwardedfor",
+          "header"
+        ],
+        "regex": "\\$\\{\\s*jndi\\s*:\\s*(ldaps?|rmi|dns|iiop|http|nis|nds|corba)\\s*:\\s*\\/\\/"
+      },
+      "basis": "CVE-2021-44228: 요청 머리글이 기록될 때 ${jndi:...} 원격 조회 구문이 실행됨 (MITRE ATT&CK T1190)"
+    },
+    {
+      "name": "jndi_lookup_in_argument",
+      "condition": {
+        "fields": [
+          "url",
+          "query",
+          "body"
+        ],
+        "regex": "\\$\\{\\s*jndi\\s*:\\s*(ldaps?|rmi|dns|iiop|http|nis|nds|corba)\\s*:\\s*\\/\\/"
+      },
+      "basis": "CVE-2021-44228: 주소 인자·본문에 넣은 ${jndi:...} 원격 조회 구문 (MITRE ATT&CK T1190)"
+    },
+    {
+      "name": "known_vulnerability_scanner_trace",
+      "condition": {
+        "fields": [
+          "description"
+        ],
+        "regex": "취약점 점검 흔적",
+        "onlyWithAnotherPattern": true
+      },
+      "basis": "T1190 공개 애플리케이션 악용 전에 알려진 취약점 점검 도구가 남기는 흔적"
+    }
+  ]
+}
