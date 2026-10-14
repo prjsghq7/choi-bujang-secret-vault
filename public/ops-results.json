@@ -1,7 +1,7 @@
 {
   "schema": "aleph.ops-results.v1",
   "target": "https://choi-bujang-secret-vault-navy.vercel.app",
-  "generatedAt": "2026-10-14T00:15:34.712Z",
+  "generatedAt": "2026-10-14T00:16:12.304Z",
   "note": "심판의 41종 시험 결과가 아닙니다. live 행만 실제 배포 응답(npm run bundle의 attackId와 같음)이고 local은 로컬 연습, not_run은 보내지 않은 요청입니다.",
   "summary": {
     "pass": 27,
@@ -18,8 +18,8 @@
       "path": "/",
       "status": 200,
       "reason": null,
-      "requestId": "a311c5d1-32b7-4db0-bd84-3aa785f64c0d",
-      "checkedAt": "2026-10-14T00:15:32.254Z",
+      "requestId": "1ae69f74-e506-4f35-b61c-e92526ea7fc5",
+      "checkedAt": "2026-10-14T00:16:09.117Z",
       "result": "pass"
     },
     {
@@ -31,8 +31,8 @@
       "path": "/data.json",
       "status": 404,
       "reason": null,
-      "requestId": "d7858ce5-dd66-4870-af39-9a54ad037d84",
-      "checkedAt": "2026-10-14T00:15:32.444Z",
+      "requestId": "e9b5ec26-8f3b-4b66-bd62-ed32077ee352",
+      "checkedAt": "2026-10-14T00:16:09.710Z",
       "result": "pass"
     },
     {
@@ -44,8 +44,8 @@
       "path": "/api/notes?id=1",
       "status": 401,
       "reason": null,
-      "requestId": "82e87ea3-a550-492c-a36d-1d2153336bf5",
-      "checkedAt": "2026-10-14T00:15:32.456Z",
+      "requestId": "4a90608f-1c70-4881-ab4c-943607831014",
+      "checkedAt": "2026-10-14T00:16:09.725Z",
       "result": "pass"
     },
     {
@@ -57,8 +57,8 @@
       "path": "/api/notes?id=1",
       "status": 401,
       "reason": null,
-      "requestId": "a79ed1e8-1ce5-4a94-a7c5-2b6ff6f268d2",
-      "checkedAt": "2026-10-14T00:15:32.926Z",
+      "requestId": "8afcdc7d-98cd-4542-b407-5aab7af148b9",
+      "checkedAt": "2026-10-14T00:16:10.220Z",
       "result": "pass"
     },
     {
@@ -70,8 +70,8 @@
       "path": "/api/notes",
       "status": 401,
       "reason": null,
-      "requestId": "21b3e364-6575-4204-a823-b1247429536b",
-      "checkedAt": "2026-10-14T00:15:33.162Z",
+      "requestId": "55834d46-892d-4715-8f0d-a4ddc268c9b6",
+      "checkedAt": "2026-10-14T00:16:10.680Z",
       "result": "pass"
     },
     {
@@ -83,8 +83,8 @@
       "path": "/api/restore",
       "status": 401,
       "reason": null,
-      "requestId": "f585ed70-d869-4d6d-af2c-d20d0c273e9e",
-      "checkedAt": "2026-10-14T00:15:33.376Z",
+      "requestId": "9197b863-b868-4307-84ec-034039c0e311",
+      "checkedAt": "2026-10-14T00:16:10.902Z",
       "result": "pass"
     },
     {
@@ -96,8 +96,8 @@
       "path": "/api/notes?id=1",
       "status": 401,
       "reason": "device_signature_required",
-      "requestId": "702ea401-3b66-468f-a6b5-327fe3f138cf",
-      "checkedAt": "2026-10-14T00:15:33.595Z",
+      "requestId": "4bab9e24-8971-4407-b7f3-6a86339272b4",
+      "checkedAt": "2026-10-14T00:16:11.126Z",
       "result": "pass"
     },
     {
@@ -109,8 +109,8 @@
       "path": "/api/notes",
       "status": 401,
       "reason": "device_signature_required",
-      "requestId": "e056cd95-aad4-4605-8a90-a1e5ecb67f05",
-      "checkedAt": "2026-10-14T00:15:33.813Z",
+      "requestId": "8a3d8bcb-cbef-4c1e-be1f-793d3b4f6a6a",
+      "checkedAt": "2026-10-14T00:16:11.346Z",
       "result": "pass"
     },
     {
@@ -122,8 +122,8 @@
       "path": "/manifest.webmanifest",
       "status": 200,
       "reason": null,
-      "requestId": "15c1fc2f-caa0-408d-abbf-a90c5af93a2f",
-      "checkedAt": "2026-10-14T00:15:34.028Z",
+      "requestId": "eb8e7d21-c49a-4882-8c17-3f5f4d748a9d",
+      "checkedAt": "2026-10-14T00:16:11.566Z",
       "result": "pass"
     },
     {
@@ -135,8 +135,8 @@
       "path": "/index.stage2.html",
       "status": 404,
       "reason": null,
-      "requestId": "d9811e91-2fa8-4211-96ad-57bad27e7ffe",
-      "checkedAt": "2026-10-14T00:15:34.046Z",
+      "requestId": "06c1c697-42cf-435d-9516-f6edd9af16d9",
+      "checkedAt": "2026-10-14T00:16:11.817Z",
       "result": "pass"
     },
     {
@@ -148,8 +148,8 @@
       "path": "/api/ops",
       "status": 401,
       "reason": null,
-      "requestId": "81588864-bad2-4550-8368-031543a7685f",
-      "checkedAt": "2026-10-14T00:15:34.058Z",
+      "requestId": "65756dc6-9b6e-4c5e-9c3a-6617d977091a",
+      "checkedAt": "2026-10-14T00:16:11.834Z",
       "result": "pass"
     },
     {
@@ -161,8 +161,8 @@
       "path": "/api/device",
       "status": 401,
       "reason": null,
-      "requestId": "6f6c6682-8a45-47f5-849c-53d0506f1ff0",
-      "checkedAt": "2026-10-14T00:15:34.486Z",
+      "requestId": "4c526135-cc6e-48cb-b3f1-b91f1881ee11",
+      "checkedAt": "2026-10-14T00:16:12.070Z",
       "result": "pass"
     },
     {
@@ -227,7 +227,7 @@
       "status": null,
       "reason": null,
       "requestId": null,
-      "checkedAt": "2026-10-14T00:15:34.710Z",
+      "checkedAt": "2026-10-14T00:16:12.302Z",
       "result": "pass"
     },
     {
@@ -240,7 +240,7 @@
       "status": null,
       "reason": null,
       "requestId": null,
-      "checkedAt": "2026-10-14T00:15:34.710Z",
+      "checkedAt": "2026-10-14T00:16:12.302Z",
       "result": "pass"
     },
     {
@@ -253,7 +253,7 @@
       "status": null,
       "reason": null,
       "requestId": null,
-      "checkedAt": "2026-10-14T00:15:34.710Z",
+      "checkedAt": "2026-10-14T00:16:12.302Z",
       "result": "pass"
     },
     {
@@ -266,7 +266,7 @@
       "status": null,
       "reason": null,
       "requestId": null,
-      "checkedAt": "2026-10-14T00:15:34.710Z",
+      "checkedAt": "2026-10-14T00:16:12.302Z",
       "result": "pass"
     },
     {
@@ -279,7 +279,7 @@
       "status": null,
       "reason": null,
       "requestId": null,
-      "checkedAt": "2026-10-14T00:15:34.710Z",
+      "checkedAt": "2026-10-14T00:16:12.302Z",
       "result": "pass"
     },
     {
@@ -292,7 +292,7 @@
       "status": null,
       "reason": null,
       "requestId": null,
-      "checkedAt": "2026-10-14T00:15:34.710Z",
+      "checkedAt": "2026-10-14T00:16:12.302Z",
       "result": "pass"
     },
     {
@@ -305,7 +305,7 @@
       "status": null,
       "reason": null,
       "requestId": null,
-      "checkedAt": "2026-10-14T00:15:34.710Z",
+      "checkedAt": "2026-10-14T00:16:12.302Z",
       "result": "pass"
     },
     {
@@ -318,7 +318,7 @@
       "status": null,
       "reason": null,
       "requestId": null,
-      "checkedAt": "2026-10-14T00:15:34.710Z",
+      "checkedAt": "2026-10-14T00:16:12.302Z",
       "result": "pass"
     },
     {
@@ -331,7 +331,7 @@
       "status": null,
       "reason": null,
       "requestId": null,
-      "checkedAt": "2026-10-14T00:15:34.710Z",
+      "checkedAt": "2026-10-14T00:16:12.302Z",
       "result": "pass"
     },
     {
@@ -344,7 +344,7 @@
       "status": null,
       "reason": null,
       "requestId": null,
-      "checkedAt": "2026-10-14T00:15:34.712Z",
+      "checkedAt": "2026-10-14T00:16:12.304Z",
       "result": "pass"
     },
     {
@@ -357,7 +357,7 @@
       "status": null,
       "reason": null,
       "requestId": null,
-      "checkedAt": "2026-10-14T00:15:34.712Z",
+      "checkedAt": "2026-10-14T00:16:12.304Z",
       "result": "pass"
     },
     {
@@ -370,7 +370,7 @@
       "status": null,
       "reason": null,
       "requestId": null,
-      "checkedAt": "2026-10-14T00:15:34.712Z",
+      "checkedAt": "2026-10-14T00:16:12.304Z",
       "result": "pass"
     },
     {
@@ -383,7 +383,7 @@
       "status": null,
       "reason": null,
       "requestId": null,
-      "checkedAt": "2026-10-14T00:15:34.712Z",
+      "checkedAt": "2026-10-14T00:16:12.304Z",
       "result": "pass"
     },
     {
@@ -396,7 +396,7 @@
       "status": null,
       "reason": null,
       "requestId": null,
-      "checkedAt": "2026-10-14T00:15:34.712Z",
+      "checkedAt": "2026-10-14T00:16:12.304Z",
       "result": "pass"
     },
     {
@@ -409,7 +409,7 @@
       "status": null,
       "reason": null,
       "requestId": null,
-      "checkedAt": "2026-10-14T00:15:34.712Z",
+      "checkedAt": "2026-10-14T00:16:12.304Z",
       "result": "pass"
     }
   ]
