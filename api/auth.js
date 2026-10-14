@@ -8,6 +8,7 @@ export default async function handler(request, response) {
     const upstream = await fetch(url + '/auth/v1/token?grant_type=password', { method: 'POST', headers: { apikey: key, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
     const data = await upstream.json();
     if (!upstream.ok) return response.status(401).json({ error: 'Invalid login' });
-    return response.status(200).json({ access_token: data.access_token, refresh_token: data.refresh_token, user: data.user });
+    // Only the short-lived access token is returned; no profile or refresh token reaches the page.
+    return response.status(200).json({ access_token: data.access_token, expires_in: data.expires_in });
   } catch { return response.status(502).json({ error: 'Auth request failed' }); }
 }

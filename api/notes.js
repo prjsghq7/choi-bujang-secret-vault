@@ -1,7 +1,7 @@
 import { createLoginVerifier } from '../src/verify-login.mjs';
 import { contentHash } from '../src/restore.mjs';
 import { captureNoteBackup } from '../src/note-backup.mjs';
-import { decideNotesRequest, verifyDeviceRequest } from '../src/device-auth.mjs';
+import { decideNotesRequest, hasDeviceSignature, verifyDeviceRequest } from '../src/device-auth.mjs';
 
 const verifierConfig = {
   judgeIssuer: 'https://aleph-judge-production.up.railway.app/defense/judge',
@@ -17,11 +17,13 @@ function notePayload(body) {
 }
 
 export default async function handler(request, response) {
+  const authorization = request.headers.authorization ?? '';
+  if (!authorization.startsWith('Bearer ')) return response.status(401).json({ error: 'Authentication required' });
+  // No device signature → 401 before any storage access, so no protected data can be returned.
+  if (!hasDeviceSignature(request.headers)) return response.status(401).json({ error: 'Approved device signature required', reason: 'device_signature_required' });
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SECRET_KEY;
   if (!url || !key) return response.status(500).json({ error: 'Server storage is not configured' });
-  const authorization = request.headers.authorization ?? '';
-  if (!authorization.startsWith('Bearer ')) return response.status(401).json({ error: 'Authentication required' });
   try {
     if (!['GET', 'POST', 'PATCH', 'DELETE'].includes(request.method)) { response.setHeader('Allow', 'GET, POST, PATCH, DELETE'); return response.status(405).json({ error: 'Method not allowed' }); }
     const verify = createLoginVerifier({ config: verifierConfig, supabaseSecretKey: key });

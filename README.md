@@ -133,6 +133,12 @@
 3. `POST /api/device {"action":"approve","deviceId","signature","password"}` — 서버가 ① challenge에 대한 기기 키 서명(키 보유 증명)과 ② 계정 비밀번호 재확인을 **모두** 검증해야만 `approved`로 바꿉니다. 승인 버튼을 누르는 것만으로는 승인되지 않으며, 비밀번호는 저장·기록하지 않습니다.
 4. 화면은 `GET /api/device?deviceId=`로 서버 기록이 `approved`인지 확인한 뒤에만 자료실을 엽니다. 승인 전에는 메모 요청을 보내지 않고 화면에 자료가 없습니다.
 
+### 승인 전에는 자료가 없음
+- 메모 화면(`#app`)은 서버가 기기를 `approved`로 확인한 뒤에만 `<template>`에서 만들어집니다. 승인 전·로그아웃·기기 재승인 상태에서는 메모 영역 자체가 페이지에 없습니다.
+- 로그인·승인 없이 `/api/notes`를 부르던 예전 2단계 화면 `public/index.stage2.html`과 `public/data.json`을 배포 결과물에서 지웠습니다.
+- `/api/notes`·`/api/restore`는 서명 헤더가 없으면 저장소·환경 설정을 읽기 전에 `401 device_signature_required`로 끝냅니다(격리 실행처럼 서버 키가 없는 환경에서도 같음).
+- `/api/auth`는 짧은 접근 토큰만 돌려주고 사용자 프로필·갱신 토큰은 화면에 넘기지 않습니다.
+
 ### 보호 요청 서명 검사 (`/api/notes`, `/api/restore`)
 - 모든 보호 요청은 헤더 `X-Device-Id`, `X-Device-Timestamp`, `X-Device-Nonce`, `X-Device-Signature`를 가져야 합니다. 서명 대상은 `aleph-device-v1\n메서드\n경로+쿼리\n본문 SHA-256\n시각\nnonce\n기기 ID`입니다.
 - `src/device-auth.mjs`의 `verifyDeviceRequest`가 확인합니다.

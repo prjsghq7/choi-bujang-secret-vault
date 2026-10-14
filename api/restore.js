@@ -4,7 +4,7 @@ import { contentHash, planToken, selectRestoreRecord, verifiedPolicyDiff, verify
 import { appendRestoreAudit, listBackupIds, readVerifiedBackup } from '../src/note-backup.mjs';
 import { RULE_IDS } from '../src/decider.mjs';
 import { retestPolicies } from '../src/retest.mjs';
-import { verifyDeviceRequest } from '../src/device-auth.mjs';
+import { hasDeviceSignature, verifyDeviceRequest } from '../src/device-auth.mjs';
 
 const verifierConfig = {
   judgeIssuer: 'https://aleph-judge-production.up.railway.app/defense/judge',
@@ -60,11 +60,12 @@ async function notePreview(url, key, headers, identity, id, files) {
 
 export default async function handler(request, response) {
   if (!['GET', 'POST'].includes(request.method)) { response.setHeader('Allow', 'GET, POST'); return response.status(405).json({ error: 'Method not allowed' }); }
+  const authorization = request.headers.authorization ?? '';
+  if (!authorization.startsWith('Bearer ')) return response.status(401).json({ error: 'Authentication required' });
+  if (!hasDeviceSignature(request.headers)) return response.status(401).json({ error: 'Approved device signature required', reason: 'device_signature_required' });
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SECRET_KEY;
   if (!url || !key) return response.status(500).json({ error: 'Server storage is not configured' });
-  const authorization = request.headers.authorization ?? '';
-  if (!authorization.startsWith('Bearer ')) return response.status(401).json({ error: 'Authentication required' });
   try {
     const verify = createLoginVerifier({ config: verifierConfig, supabaseSecretKey: key });
     const identity = await verify(authorization);

@@ -43,6 +43,13 @@ export function canonicalRequest({ method, path, body, timestamp, nonce, deviceI
   return [SIGNATURE_SCHEME, method, path, sha256(bodyText(body)), timestamp, nonce, deviceId].join('\n');
 }
 
+// Cheap first gate, checked before any storage or environment work: a protected request without
+// all four device-signature headers is rejected with 401 and nothing else runs.
+export function hasDeviceSignature(headers) {
+  return ['x-device-id', 'x-device-timestamp', 'x-device-nonce', 'x-device-signature']
+    .every(name => typeof headers?.[name] === 'string' && headers[name].length > 0);
+}
+
 // Verifies the device signature over method + path(+query) + body hash + time + nonce.
 // An unsigned request, a changed path or a changed body after signing all fail here.
 export async function verifyDeviceRequest(request, identity, { url, key, now = Date.now() } = {}) {
