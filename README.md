@@ -192,7 +192,8 @@
 - 비밀값(서버 키, 토큰, 비밀번호, 기기 개인키)은 어떤 파일에도 포장하지 않습니다.
 
 ### 실측 기록과 자기 점검의 연결
-- `src/attack-check.mjs`의 `LIVE_ATTACKS`가 attackId마다 실제 요청 하나를 `X-Request-Id`와 함께 보냅니다. `npm run bundle`의 `attackAttempts`와 `npm run ops:check`가 쓰는 `docs/OPS_RESULTS.md`·`public/ops-results.json`은 같은 attackId·요청 ID·상태코드·시각을 기록하고, 작전실 화면은 그 파일을 그대로 표로 보여 줍니다.
+- `npm run ops:check`가 `src/attack-check.mjs`의 `LIVE_ATTACKS`를 attackId마다 실제 요청 하나로 보내고, 같은 attackId·요청 ID·상태코드·시각을 `docs/OPS_RESULTS.md`·`public/ops-results.json`에 기록합니다. 작전실 화면은 그 파일을 그대로 표로 보여 줍니다.
+- `npm run bundle`(제출 묶음)은 요청을 직접 보내지 않으므로 `attackAttempts`의 observed를 모두 `not_run`으로 적습니다. 보내지 않은 요청의 결과를 묶음에 채우지 않습니다.
 - 제출 묶음은 읽기 요청(GET·HEAD)만 보냅니다. 요청을 보내지 않은 점검(`unsigned_change_after_restore`, `revocation_detection_contract`, `revoked_identity_resend`, `cross_owner_read`, `signed_path_body_tamper`)은 observed를 `not_run`으로 적고, 쓰기 요청 거부는 `npm run device:test` 로컬 연습으로 확인합니다.
 - 2026-10-14 측정 시 Supabase 프로젝트 주소가 DNS에서 확인되지 않았습니다(`ENOTFOUND`, 일시 중지로 추정). 이 상태에서는 로그인·메모 저장이 `502`가 되며, 로그인이 필요한 정상 요청은 측정하지 않았습니다.
 - 요청이 서버에 닿지 않으면(격리 실행처럼 네트워크가 없을 때) 그 점검은 결과를 꾸미지 않고 observed를 `not_run`으로 적습니다. 각 요청에는 `X-Request-Id`와 `X-Aleph-Attack-Id` 헤더가 붙습니다.

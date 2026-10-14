@@ -17,7 +17,9 @@ export async function runAttackChecks(config) {
     throw new Error('aleph.config.json의 실제 배포 주소를 먼저 넣어 주세요.');
   }
   if (config.step >= 12) {
-    return (await runLiveAttackChecks(config)).map(({ attackId, expected, observed }) => ({ attackId, expected, observed }));
+    // The submission bundle sends no requests itself, so every check is not_run here.
+    // Real measurements come from `npm run ops:check` (docs/OPS_RESULTS.md, public/ops-results.json).
+    return [...LIVE_ATTACKS, ...NOT_SENT].map(({ attackId, expected }) => ({ attackId, expected, observed: 'not_run' }));
   }
   if (config.step >= 6) {
     const rootResponse = await fetch(app, { redirect: 'error', signal: AbortSignal.timeout(10000) });
