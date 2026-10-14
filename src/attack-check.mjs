@@ -90,7 +90,7 @@ export async function runAttackChecks(config) {
   ];
 }
 
-// 12단계: every attackId below is one real request with its own X-Request-Id. The same records
+// 12단계: only read requests (GET) are sent, as the submission bundle allows. Every attackId below is one real request with its own X-Request-Id. The same records
 // (attackId, request ID, status, time) are written by `npm run ops:check` to docs/OPS_RESULTS.md and
 // public/ops-results.json, which the ops room screen reads. A check that sends no request is `not_run`.
 const FAKE_SIGNATURE = { 'X-Device-Id': '0'.repeat(16), 'X-Device-Timestamp': '1970-01-01T00:00:00.000Z',
@@ -106,11 +106,11 @@ export const LIVE_ATTACKS = Object.freeze([
   { attackId: 'forged_token_notes', stage: 4, expected: '위조 토큰·위조 서명 메모 조회 401', method: 'GET', path: '/api/notes?id=1',
     headers: { Authorization: 'Bearer a.b.c', ...FAKE_SIGNATURE }, pass: status => status === 401 },
   { attackId: 'anonymous_notes_list', stage: 8, expected: '비로그인 전체 목록 조회 401', method: 'GET', path: '/api/notes', pass: status => status === 401 },
-  { attackId: 'anonymous_restore', stage: 10, expected: '비로그인 복구 요청 401', method: 'POST', path: '/api/restore', body: { id: '1' }, pass: status => status === 401 },
+  { attackId: 'anonymous_restore', stage: 10, expected: '비로그인 복구 미리 보기 401', method: 'GET', path: '/api/restore?id=1', pass: status => status === 401 },
+  { attackId: 'unsigned_restore_preview', stage: 12, expected: '서명 없는 복구 경로 조회 401', method: 'GET', path: '/api/restore?id=1',
+    headers: { Authorization: 'Bearer a.b.c' }, pass: status => status === 401 },
   { attackId: 'unsigned_protected_request', stage: 11, expected: '기기 서명 없는 보호 요청 401', method: 'GET', path: '/api/notes?id=1',
     headers: { Authorization: 'Bearer a.b.c' }, pass: status => status === 401 },
-  { attackId: 'unsigned_change_after_restore', stage: 12, expected: '서명 없는 변경 요청 401', method: 'PATCH', path: '/api/notes',
-    headers: { Authorization: 'Bearer a.b.c' }, body: { id: 1, content: 'x' }, pass: status => status === 401 },
   { attackId: 'install_manifest', stage: 11, expected: 'manifest 200, 앱 이름 있음', method: 'GET', path: '/manifest.webmanifest',
     pass: (status, text) => status === 200 && /"name"/u.test(text) },
   { attackId: 'stage2_page_removed', stage: 11, expected: '예전 무인증 화면 404', method: 'GET', path: '/index.stage2.html', pass: status => status === 404 },
@@ -119,6 +119,7 @@ export const LIVE_ATTACKS = Object.freeze([
 ]);
 
 export const NOT_SENT = Object.freeze([
+  { attackId: 'unsigned_change_after_restore', stage: 12, expected: '복구 뒤 서명 없는 변경(PATCH) 401', why: '제출 묶음은 읽기 요청(GET·HEAD)만 보내므로 보내지 않음(npm run device:test 로컬 연습은 통과)' },
   { attackId: 'revocation_detection_contract', stage: 9, expected: '운영 엔진 실사건으로 burst_read 회수 제안', why: '운영 엔진이 실사건을 이 앱에 전달하지 않아 요청을 보내지 않음' },
   { attackId: 'revoked_identity_resend', stage: 12, expected: '회수된 신원 재전송 403 identity_revoked', why: '실제 계정 토큰과 승인된 기기 키가 필요해 보내지 않음' },
   { attackId: 'cross_owner_read', stage: 4, expected: 'B 토큰으로 A 메모 조회 404/403', why: '실제 계정 토큰과 승인된 기기 키가 필요해 보내지 않음' },
