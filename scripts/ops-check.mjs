@@ -28,7 +28,7 @@ async function live(stage, name, expected, method, path, { headers = {}, body, e
     rows.push({ stage, name, kind: 'live', expected, method, path: target.pathname + target.search, status: response.status,
       reason, requestId: response.headers.get('x-request-id') ?? requestId, checkedAt, result: passed ? 'pass' : 'fail' });
   } catch (error) {
-    rows.push({ stage, name, kind: 'live', expected, method, path: target.pathname, status: null, reason: error.name,
+    rows.push({ stage, name, kind: 'live', expected, method, path: target.pathname, status: null, reason: error.cause?.code ?? error.name,
       requestId, checkedAt, result: 'fail' });
   }
 }
