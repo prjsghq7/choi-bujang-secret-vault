@@ -478,8 +478,91 @@ export function createStudentView(/* { api, onChange } */) {
       return root;
     },
     renderVulnerabilities() { return '학생 구현 대기: 정확한 설치 버전·OSV 출처·조회 시각·부분 결과·조회 실패를 구분하세요.'; },
-    renderAiConnection() { return '학생 구현 대기: 모델 응답 점검과 실제 사건 설명을 구분하고 AI 오류·취소·수동 복구를 안내하세요.'; },
-    renderExplanation() { return '학생 구현 대기: 선택한 사건의 근거·규칙·현재 상태와 AI 설명을 연결하세요. 제안은 자동 실행하지 않습니다.'; },
+    // 17단계: AI 연결 점검 결과(idle/loading/ok/error)를 표시한다.
+    // 연결 점검과 실제 사건 설명 실행은 다르다는 것을 분명히 한다. 매 호출 새 DOM 반환(이전 결과 미보관).
+    // 받는 값: { status, mode, data?, error?, checkedAt, explanationAccepted }
+    //   data(ok) = { transportChecked, audienceAuthorization:'test'|'verified', modelCount, help }
+    renderAiConnection(aiData) {
+      const info = aiData || {};
+      const root = document.createElement('div');
+      root.className = 'student-ai-connection';
+      const box = document.createElement('section');
+      box.className = 'identity-section';
+      const heading = document.createElement('h4');
+      heading.className = 'identity-title';
+      heading.textContent = 'AI 연결 점검';
+      box.append(heading);
+
+      const status = info.status;
+      if (status === 'loading') {
+        box.append(line('상태', 'AI 모델 응답을 점검하는 중'));
+      } else if (status === 'error') {
+        // 인증·권한·한도·시간 초과·취소·모델 없음 등은 안전한 code·message 로 구분한다.
+        const err = info.error || {};
+        box.append(line('상태', 'AI 연결 점검 실패', true));
+        box.append(line('코드', err.code || '확인 불가'));
+        box.append(line('사유', err.message || '확인 불가'));
+      } else if (status === 'ok') {
+        const data = info.data || {};
+        const verified = data.audienceAuthorization === 'verified';
+        box.append(line('점검 결과', verified
+          ? '앱 권한 확인 후 모델 응답 점검(verified)'
+          : '시험 transport 모델 응답 점검(test) · 실제 게이트 수용 아님'));
+        box.append(line('응답 모델 수', String(data.modelCount ?? '확인 불가')));
+        box.append(line('점검 시각', info.checkedAt || '확인 불가'));
+        box.append(line('안내', '이 점검은 사건 설명을 실행한 것이 아닙니다. 사건 설명 결과는 보안 기록에서 별도로 확인합니다.'));
+      } else {
+        box.append(line('상태', 'AI 연결 점검 전입니다. 설정값이 있어도 이용 권한이 확인된 것은 아닙니다.'));
+      }
+      const note = modeNote(info);
+      if (note) box.append(note);
+      root.append(box);
+      return root;
+    },
+    // 17단계(기본 표시): 선택한 사건의 AI 설명을 공식 입력 계약대로 상태별로 보여 준다.
+    // 제안은 자동 실행하지 않는다(executed=false 표시). 근거·규칙 상세는 뒤 단계에서 확장한다.
+    // 받는 값: { event, explanation:{status,mode,data?,error?}, checkedAt }
+    //   explanation.data(ok) = { summary, evidenceIds, proposals, requiresHumanConfirmation, executed }
+    renderExplanation(explanationData) {
+      const info = explanationData || {};
+      const exp = info.explanation || {};
+      const root = document.createElement('div');
+      root.className = 'student-explanation';
+      const box = document.createElement('section');
+      box.className = 'identity-section';
+      const heading = document.createElement('h4');
+      heading.className = 'identity-title';
+      heading.textContent = info.event && info.event.id ? `사건 설명 · ${info.event.id}` : '사건 설명';
+      box.append(heading);
+
+      if (!info.event) {
+        box.append(line('상태', '선택한 사건이 없습니다. 보안 기록에서 사건을 선택하세요.'));
+        root.append(box);
+        return root;
+      }
+
+      const status = exp.status;
+      if (status === 'loading') {
+        box.append(line('상태', '사건 설명을 생성하는 중'));
+      } else if (status === 'error') {
+        const err = exp.error || {};
+        box.append(line('상태', '사건 설명을 불러오지 못했습니다', true));
+        box.append(line('코드', err.code || '확인 불가'));
+        box.append(line('사유', err.message || '확인 불가'));
+      } else if (status === 'ok') {
+        const data = exp.data || {};
+        box.append(line('요약', data.summary || '요약 없음'));
+        box.append(line('사람 확인 필요', data.requiresHumanConfirmation ? '예' : '아니오'));
+        box.append(line('실행 여부', data.executed ? '실행됨' : '실행하지 않음(제안은 자동 실행하지 않습니다)'));
+        box.append(line('점검 시각', info.checkedAt || '확인 불가'));
+      } else {
+        box.append(line('상태', '사건 설명 전입니다.'));
+      }
+      const note = modeNote(exp);
+      if (note) box.append(note);
+      root.append(box);
+      return root;
+    },
     renderAction() { return '학생 구현 대기: 현재 사건·조치·실제 대상·사람 확인·ACK와 원천 효과·unknown을 구분하세요.'; },
   };
 }
