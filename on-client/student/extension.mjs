@@ -105,7 +105,7 @@ function modeNote(resource) {
 }
 
 // 리소스 하나({ status, mode, data?, error? })를 상태별로 그린다.
-function section(title, resource, renderOk, errorText) {
+function section(title, resource, renderOk, errorText, retryHint) {
   const box = document.createElement('section');
   box.className = 'identity-section';
   const heading = document.createElement('h4');
@@ -119,6 +119,8 @@ function section(title, resource, renderOk, errorText) {
   } else if (status === 'error') {
     const message = (resource.error && resource.error.message) || '확인 불가';
     box.append(line('상태', `${errorText || '연결 실패'}: ${message}`, true));
+    // 자동 재요청을 하지 않으므로 사용자가 직접 다시 불러오도록 안내한다.
+    if (retryHint) box.append(line('안내', retryHint));
   } else if (status === 'ok') {
     renderOk(box, resource.data);
   } else {
@@ -413,16 +415,19 @@ export function createStudentView(/* { api, onChange } */) {
         for (const device of rows) {
           box.append(line(device.label || device.id || '기기', deviceLabelEvent(device.status), DEVICE_WARN.has(device.status)));
         }
-      }, '기기를 불러오지 못했습니다'));
+      }, '기기를 불러오지 못했습니다', '위쪽 「다시 불러오기」 버튼을 직접 눌러 다시 시도하세요.'));
 
       // 세션: 현재 검증된 연결 한 개 범위
-      root.append(section('세션', data.sessions, (box, list) => {
+      const sessionBox = section('세션', data.sessions, (box, list) => {
         const rows = Array.isArray(list) ? list : [];
         if (rows.length === 0) { box.append(line('목록', '표시할 세션이 없습니다')); return; }
         for (const session of rows) {
           box.append(line(session.id || '세션', sessionLabelEvent(session.status), SESSION_WARN.has(session.status)));
         }
-      }, '세션을 불러오지 못했습니다'));
+      }, '세션을 불러오지 못했습니다', '위쪽 「다시 불러오기」 버튼을 직접 눌러 다시 시도하세요.');
+      // 세션 범위를 화면 글자로 알린다(주석이 아니라 표시 문장).
+      sessionBox.append(line('안내', '현재 검증된 연결 하나이며 지난 세션 목록이 아닙니다.'));
+      root.append(sessionBox);
 
       // 진단 정보: 제공 화면이 전달한 결과만 표시(학생이 /api/diagnostics 직접 호출하지 않음).
       const diag = data.diagnostics || {};
@@ -445,6 +450,7 @@ export function createStudentView(/* { api, onChange } */) {
           ['checkedAt', d.checkedAt], ['engine.mode', engine.mode], ['engine.code', engine.code],
         ];
         for (const [name, value] of fields) diagBox.append(line(name, value ?? '확인 불가'));
+        diagBox.append(line('안내', '문제 해결을 위한 도움 요청에 사용할 정보를 복사합니다.'));
         const copyStatus = document.createElement('p');
         copyStatus.className = 'identity-line';
         const copyButton = document.createElement('button');
