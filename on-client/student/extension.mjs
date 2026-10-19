@@ -497,11 +497,41 @@ export function createStudentView(/* { api, onChange } */) {
       if (status === 'loading') {
         box.append(line('상태', 'AI 모델 응답을 점검하는 중'));
       } else if (status === 'error') {
-        // 인증·권한·한도·시간 초과·취소·모델 없음 등은 안전한 code·message 로 구분한다.
+        // 공개 오류 code 로 유형을 나누고, 키 입력·복사가 아니라 계정 연결·담당자 확인을 안내한다.
         const err = info.error || {};
+        const code = (err.code || '').toUpperCase();
         box.append(line('상태', 'AI 연결 점검 실패', true));
         box.append(line('코드', err.code || '확인 불가'));
         box.append(line('사유', err.message || '확인 불가'));
+        let kind;
+        let recovery;
+        if (/PROVISION|PENDING|PREP/.test(code)) {
+          kind = '권한 준비 중';
+          recovery = '앱 이용 권한의 발급·연결이 준비 중입니다. 계정 연결을 다시 확인하고 담당자에게 확인을 요청하세요.';
+        } else if (/AUTH|CREDENTIAL|SIGNIN|LOGIN/.test(code)) {
+          kind = '인증 실패';
+          recovery = '계정 연결이 확인되지 않았습니다. 계정 연결을 다시 확인하세요. API 키를 입력하거나 복사하지 않습니다.';
+        } else if (/FORBID|ACCESS|DENIED|PERMISSION|SCOPE/.test(code)) {
+          kind = '접근 제한';
+          recovery = '이 계정으로는 접근이 제한됩니다. 계정 연결을 다시 확인하고 담당자에게 권한을 확인하세요.';
+        } else if (/TIMEOUT/.test(code)) {
+          kind = '시간 초과';
+          recovery = '응답이 지연됐습니다. 잠시 뒤 「현재 API 연결 점검」을 직접 다시 누르세요.';
+        } else if (/CANCEL/.test(code)) {
+          kind = '취소됨';
+          recovery = '점검이 취소됐습니다. 필요하면 「현재 API 연결 점검」을 직접 다시 누르세요.';
+        } else if (/MODEL/.test(code)) {
+          kind = '모델 없음';
+          recovery = '응답한 모델이 없습니다. 계정 연결과 권한을 확인한 뒤 「현재 API 연결 점검」을 직접 다시 누르세요.';
+        } else if (/NETWORK/.test(code)) {
+          kind = '확인 불가(네트워크 가능성)';
+          recovery = '네트워크 상태가 원인일 수 있습니다(단정할 수 없음). 연결을 확인한 뒤 「현재 API 연결 점검」을 직접 다시 누르세요.';
+        } else {
+          kind = '확인 불가';
+          recovery = '원인을 단정할 수 없습니다. 네트워크 상태를 확인한 뒤 「현재 API 연결 점검」을 직접 다시 누르세요. 계속되면 담당자에게 확인을 요청하세요.';
+        }
+        box.append(line('유형', kind));
+        box.append(line('복구 안내', recovery));
       } else if (status === 'ok') {
         const data = info.data || {};
         const verified = data.audienceAuthorization === 'verified';
@@ -514,6 +544,8 @@ export function createStudentView(/* { api, onChange } */) {
       } else {
         box.append(line('상태', 'AI 연결 점검 전입니다. 설정값이 있어도 이용 권한이 확인된 것은 아닙니다.'));
       }
+      // 자동 재시도 없음(모든 상태 공통). 필요하면 사용자가 직접 재점검한다.
+      box.append(line('재점검', '자동으로 다시 점검하지 않습니다. 필요하면 「현재 API 연결 점검」 버튼을 직접 누르세요.'));
       const note = modeNote(info);
       if (note) box.append(note);
       root.append(box);
@@ -549,7 +581,10 @@ export function createStudentView(/* { api, onChange } */) {
         box.append(line('상태', '사건 설명을 불러오지 못했습니다', true));
         box.append(line('코드', err.code || '확인 불가'));
         box.append(line('사유', err.message || '확인 불가'));
+        box.append(line('안내', '이 오류는 기존 사건·보안 기록을 바꾸지 않습니다. 기록은 그대로 유지됩니다.'));
       } else if (status === 'ok') {
+        // 성공한 설명이 어떤 사건의 것인지 바깥 요소에 노출한다.
+        root.dataset.studentExplanationEvent = info.event.id;
         const data = exp.data || {};
         box.append(line('요약', data.summary || '요약 없음'));
         box.append(line('사람 확인 필요', data.requiresHumanConfirmation ? '예' : '아니오'));
