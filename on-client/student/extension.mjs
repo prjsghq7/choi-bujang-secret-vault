@@ -14,7 +14,9 @@ const SESSION_WARN = new Set(['expired', 'revoked', 'unknown']);
 const DECISION_STATUS = { allow: '접근 허용', deny: '접근 거부', challenge: '추가 인증 또는 확인 필요', unknown: '판정 확인 불가' };
 const DECISION_WARN = new Set(['deny', 'challenge', 'unknown']);
 function decisionLabel(value) {
-  return `${DECISION_STATUS[value] || '판정 확인 불가'}(${value ?? 'unknown'})`;
+  // 네 가지 허용값(allow/deny/challenge/unknown)이 아니면 표시 코드도 unknown 으로 정규화한다.
+  const code = Object.hasOwn(DECISION_STATUS, value) ? value : 'unknown';
+  return `${DECISION_STATUS[code]}(${code})`;
 }
 
 function deviceLabel(status) {
@@ -174,6 +176,10 @@ export function createStudentView(/* { api, onChange } */) {
         const data = info.data || {};
         const unknownDecision = !DECISION_STATUS[data.decision];
         box.append(line('판정', decisionLabel(data.decision), DECISION_WARN.has(data.decision) || unknownDecision));
+        // challenge 는 이 화면이 추가 확인을 대신 수행하지 않음을 분명히 한다(서버 사유에 의존하지 않음).
+        if (data.decision === 'challenge') {
+          box.append(line('안내', '이 앱은 추가 확인 절차를 대신 수행하지 않습니다.'));
+        }
         box.append(line('사유', data.reason || '사유 정보 없음'));
         box.append(line('판정 시각', data.checkedAt || '확인 불가'));
       } else {
