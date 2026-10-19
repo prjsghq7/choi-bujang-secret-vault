@@ -27,6 +27,8 @@ function accessLabel(value) { return `${ACCESS_STATUS[value] || '확인 불가'}
 function sessionLabelEvent(value) { return `${SESSION_STATUS[value] || '확인 불가'}(${value ?? 'unknown'})`; }
 function deviceLabelEvent(value) { return `${DEVICE_STATUS[value] || '확인 불가'}(${value ?? 'unknown'})`; }
 function uniqueValues(arr) { return [...new Set(arr)]; }
+// appId 가 없으면 "앱이 없다"가 아니라 "현재 등록 정보로 앱을 확인할 수 없다"는 뜻이다.
+function appText(appId) { return appId || '앱 확인 불가'; }
 
 // 「전체(all) + 원래 값」 옵션을 가진 필터 select 한 개를 만든다.
 function filterSelect(labelText, value, options, onChange) {
@@ -291,7 +293,7 @@ export function createStudentView(/* { api, onChange } */) {
 
       const matched = () => events.filter((event) =>
         (filterKind === 'all' || event.kind === filterKind)
-        && (filterApp === 'all' || (event.appId || '없음') === filterApp)
+        && (filterApp === 'all' || appText(event.appId) === filterApp)
         && (filterAccess === 'all' || event.state.access === filterAccess));
 
       function drawList() {
@@ -309,7 +311,8 @@ export function createStudentView(/* { api, onChange } */) {
           li.dataset.studentEventId = event.id;
           const headline = document.createElement('p');
           headline.className = 'student-event-head';
-          headline.textContent = `${event.id} · ${event.at} · ${kindLabel(event.kind)} · 앱 ${event.appId || '없음'}`;
+          const appPart = event.appId ? `앱 ${event.appId}` : '앱 확인 불가';
+          headline.textContent = `${event.id} · ${event.at} · ${kindLabel(event.kind)} · ${appPart}`;
           const summary = document.createElement('p');
           summary.textContent = event.summary;
           const detailButton = document.createElement('button');
@@ -324,13 +327,17 @@ export function createStudentView(/* { api, onChange } */) {
 
       function drawDetail() {
         detailBox.textContent = '';
-        if (selectedId == null) return;
+        if (selectedId == null) { delete detailBox.dataset.studentEventDetail; return; }
         const event = events.find((row) => row.id === selectedId);
-        if (!event) return;
+        if (!event) { delete detailBox.dataset.studentEventDetail; return; }
+        // 상세가 어떤 기록을 보여 주는지 data 속성으로 노출한다(className 으로 대체하지 않는다).
+        detailBox.dataset.studentEventDetail = event.id;
         const heading = document.createElement('h4');
         heading.className = 'identity-title';
         heading.textContent = `${event.id} 상세`;
         detailBox.append(heading);
+        // appId 없음은 "앱이 없다"가 아니라 "등록 정보로 앱 확인 불가"를 뜻한다.
+        detailBox.append(line('앱', event.appId || '확인 불가(등록 정보로 앱 식별 불가)', !event.appId));
         detailBox.append(line('접속', accessLabel(event.state.access), event.state.access !== 'allowed'));
         detailBox.append(line('세션', sessionLabelEvent(event.state.session), SESSION_WARN.has(event.state.session)));
         detailBox.append(line('기기', deviceLabelEvent(event.state.device), DEVICE_WARN.has(event.state.device)));
@@ -345,7 +352,7 @@ export function createStudentView(/* { api, onChange } */) {
       }
 
       const kindOptions = uniqueValues(events.map((e) => e.kind)).map((v) => ({ value: v, text: kindLabel(v) }));
-      const appOptions = uniqueValues(events.map((e) => e.appId || '없음')).map((v) => ({ value: v, text: v }));
+      const appOptions = uniqueValues(events.map((e) => appText(e.appId))).map((v) => ({ value: v, text: v }));
       const accessOptions = uniqueValues(events.map((e) => e.state.access)).map((v) => ({ value: v, text: accessLabel(v) }));
 
       filters.append(
