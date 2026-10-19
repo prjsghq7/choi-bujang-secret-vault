@@ -10,6 +10,13 @@ const MODE_NOTE = { demo: '예제 자료', disconnected: '연결 없음', unknow
 const DEVICE_WARN = new Set(['noncompliant', 'unknown']);
 const SESSION_WARN = new Set(['expired', 'revoked', 'unknown']);
 
+// 접근 판정(decision). allow 만 정상 접근이고 나머지는 주의로 구분한다.
+const DECISION_STATUS = { allow: '접근 허용', deny: '접근 거부', challenge: '추가 인증 또는 확인 필요', unknown: '판정 확인 불가' };
+const DECISION_WARN = new Set(['deny', 'challenge', 'unknown']);
+function decisionLabel(value) {
+  return `${DECISION_STATUS[value] || '판정 확인 불가'}(${value ?? 'unknown'})`;
+}
+
 function deviceLabel(status) {
   return `${DEVICE_STATUS[status] || '확인 불가'}(${status ?? 'unknown'})`;
 }
@@ -136,7 +143,48 @@ export function createStudentView(/* { api, onChange } */) {
 
       return root;
     },
-    renderDecision() { return '학생 구현 대기: 서버의 판정과 이유를 연결하세요.'; },
+    // 14단계: 선택한 업무 앱 한 개의 접근 판정과 이유·시각을 표시한다.
+    // renderIdentity 는 그대로 두고 renderDecision 만 구현한다.
+    // 받는 값: { status, mode, data?, error?, appId }
+    //   status idle(요청 전)·loading·ok·error, ok 의 data = { appId, decision, reason, checkedAt }
+    renderDecision(decision) {
+      const info = decision || {};
+      const appId = info.appId || (info.data && info.data.appId) || null;
+      const root = document.createElement('div');
+      root.className = 'student-decision';
+
+      const box = document.createElement('section');
+      box.className = 'identity-section';
+      const heading = document.createElement('h4');
+      heading.className = 'identity-title';
+      heading.textContent = appId ? `접근 판정 · 앱 ${appId}` : '접근 판정';
+      box.append(heading);
+
+      const status = info.status;
+      if (status === 'idle') {
+        box.append(line('상태', '접근 요청 전입니다. 업무 앱을 선택해 접근을 요청하세요.'));
+      } else if (status === 'loading') {
+        box.append(line('상태', `${appId ? `앱 ${appId} ` : ''}접속 판정 요청 중`));
+      } else if (status === 'error') {
+        // 요청 실패·확인 불가는 접근 거부(deny)와 다르다. 텍스트로 분명히 구분한다.
+        const message = (info.error && info.error.message) || '확인 불가';
+        box.append(line('상태', `판정 요청 실패: ${message}`, true));
+        box.append(line('구분', '요청 실패·확인 불가는 접근 거부(deny) 판정이 아닙니다.'));
+      } else if (status === 'ok') {
+        const data = info.data || {};
+        const unknownDecision = !DECISION_STATUS[data.decision];
+        box.append(line('판정', decisionLabel(data.decision), DECISION_WARN.has(data.decision) || unknownDecision));
+        box.append(line('사유', data.reason || '사유 정보 없음'));
+        box.append(line('판정 시각', data.checkedAt || '확인 불가'));
+      } else {
+        box.append(line('상태', '확인 불가', true));
+      }
+
+      const note = modeNote(info);
+      if (note) box.append(note);
+      root.append(box);
+      return root;
+    },
     renderEvents() { return '학생 구현 대기: 본인 접속·XDR 기록을 연결하세요.'; },
     renderStatus() { return '학생 구현 대기: 기기·세션·알림과 연결 점검 상태를 구분하세요.'; },
     renderVulnerabilities() { return '학생 구현 대기: 정확한 설치 버전·OSV 출처·조회 시각·부분 결과·조회 실패를 구분하세요.'; },
