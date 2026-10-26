@@ -18,7 +18,7 @@
 ## 2. 폴더 구조와 작업 위치
 
 ```
-D:\k뉴딜\과제\침공\repo\            ← Git 최상위(프로젝트 폴더). 커밋·push·제출은 여기 기준
+<프로젝트 폴더>\                     ← Git 최상위(git clone 한 폴더). 커밋·push·제출은 여기 기준
 ├─ api\, src\, public\ ...           ← 1~12단계 프로젝트(Vercel 배포). 케셰브 실행과 무관
 └─ on-client\                        ← 앱 폴더. PowerShell 은 여기서 연다
    ├─ package.json                   ← start / demo / check 스크립트
@@ -39,7 +39,7 @@ D:\k뉴딜\과제\침공\repo\            ← Git 최상위(프로젝트 폴더)
 ## 3. 실행·종료·재실행 절차
 
 ### 3-1. PowerShell 여는 위치
-파일 탐색기에서 `D:\k뉴딜\과제\침공\repo\on-client` 를 열고 주소 표시줄에 `powershell` 입력 → Enter. (다른 PC라면 각자 프로젝트의 `on-client` 폴더)
+파일 탐색기에서 `<프로젝트 폴더>\on-client` 를 열고 주소 표시줄에 `powershell` 입력 → Enter. 문서의 명령은 모두 이 폴더 기준 상대 경로이며 특정 PC의 절대 경로에 의존하지 않습니다.
 
 ### 3-2. 실행 명령
 
