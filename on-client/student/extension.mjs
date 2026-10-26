@@ -212,7 +212,25 @@ const STATUS_OF_ACTION = {
 };
 const ACTION_WARN = new Set(['pending', 'denied', 'failed', 'unknown', 'expired', 'error']);
 
+// 20단계(설치 패키지 취약점 대조)용. 조회 상태·패키지 상태 라벨. 미조회·확인 불가를 "없음"으로 쓰지 않는다.
+const SCAN_STATUS_TEXT = {
+  complete: '모두 조회',
+  partial: '일부 조회 실패',
+  not_checked: '아직 조회 안 함',
+  not_configured: '조회 준비 미완료',
+  unverifiable: 'lock 파일 확인 불가',
+};
+const PACKAGE_STATUS_TEXT = {
+  known_vulnerabilities: '알려진 항목 있음',
+  none_found: '알려진 항목 없음(조회 시점 기준)',
+  unverifiable: '조회 확인 불가',
+};
+// package-lock.json 의 정확한 설치 버전(semver). ^·~·x·* 같은 범위는 통과하지 않는다.
+const EXACT_VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+
 export function createStudentView(/* { api, onChange } */) {
+  // 20단계: 마지막으로 표시한 패키지 조회 시각. 이보다 오래된 응답은 늦게 도착한 이전 응답으로 보고 표시하지 않는다.
+  let lastVulnCheckedMs = NaN;
   return {
     // 13단계: 지금 로그인한 사용자·기기·세션을 상태에 맞게 보여 주고,
     // 다시 불러오면 새 값으로 바꾼다. 오류일 때 이전 사용자 값을 남기지 않는다
@@ -557,7 +575,115 @@ export function createStudentView(/* { api, onChange } */) {
       if (note) root.append(note);
       return root;
     },
-    renderVulnerabilities() { return '학생 구현 대기: 정확한 설치 버전·OSV 출처·조회 시각·부분 결과·조회 실패를 구분하세요.'; },
+    // 20단계: package-lock.json 의 실제 설치 버전을 OSV 취약점 정보와 대조한 결과를 보여 준다.
+    // 받는 값: { status: idle|loading|error|ok, mode, data?, error? }
+    //   data = { status: complete|partial|not_checked|not_configured|unverifiable, code?, lockfileVersion?, lockfileHash?,
+    //            excluded?, checkedAt, packages:[{ name, version, status, vulnerabilities:[{id,modified}], source, checkedAt }] }
+    // 매 호출 새 DOM 을 돌려준다. 다시 조회하면 새 lockfileHash·결과로 통째로 바뀌고, 조회 중·실패일 때 이전 표를 남기지 않는다.
+    // 조회 실패·미조회·확인 불가는 "취약점 없음"으로 표시하지 않는다.
+    renderVulnerabilities(vulnData) {
+      const res = vulnData || {};
+      const root = document.createElement('div');
+      root.className = 'student-vulnerabilities';
+      const box = document.createElement('section');
+      box.className = 'identity-section';
+      const heading = document.createElement('h4');
+      heading.className = 'identity-title';
+      heading.textContent = '설치 패키지 취약점 대조(OSV)';
+      box.append(heading);
+      root.append(box);
+      const finish = () => {
+        const note = modeNote(res);
+        if (note) box.append(note);
+        return root;
+      };
+
+      if (res.status === 'idle') {
+        box.append(line('상태', '조회 전'));
+        box.append(line('안내', '아직 조회하지 않았으므로 취약점이 없다는 뜻이 아닙니다. 「설치 패키지 조회」를 직접 누르세요.'));
+        return finish();
+      }
+      if (res.status === 'loading') {
+        // 이전 표를 현재 결과처럼 남기지 않는다.
+        box.append(line('상태', '조회 중'));
+        box.append(line('안내', '이전 조회 결과는 지웠습니다. 취소하면 늦게 도착한 응답은 표시하지 않습니다.'));
+        return finish();
+      }
+      if (res.status !== 'ok') {
+        const err = res.error || {};
+        box.append(line('상태', `조회 실패: ${err.message || '확인 불가'}`, true));
+        box.append(line('오류 코드', err.code || '확인 불가'));
+        box.append(line('안내', '조회 실패는 "취약점 없음"이 아닙니다. 이전 결과를 현재 결과로 보지 않습니다. 「설치 패키지 조회」를 직접 눌러 새로 조회하세요.'));
+        return finish();
+      }
+
+      const data = res.data || {};
+      // 늦게 도착한 이전 조회 응답 차단: 이미 표시한 결과보다 오래된 조회 시각이면 현재 결과로 쓰지 않는다.
+      const checkedMs = Date.parse(data.checkedAt);
+      if (Number.isFinite(lastVulnCheckedMs) && Number.isFinite(checkedMs) && checkedMs < lastVulnCheckedMs) {
+        box.append(line('상태', '이전 조회 응답이라 표시하지 않습니다', true));
+        box.append(line('안내', '더 최근 조회 결과가 이미 있습니다. 필요하면 「설치 패키지 조회」를 직접 다시 누르세요.'));
+        return finish();
+      }
+      if (Number.isFinite(checkedMs)) lastVulnCheckedMs = checkedMs;
+
+      const scanStatus = Object.hasOwn(SCAN_STATUS_TEXT, data.status) ? data.status : 'unverifiable';
+      box.append(line('조회 상태', `${SCAN_STATUS_TEXT[scanStatus]}(${scanStatus})`, scanStatus !== 'complete'));
+      if (data.code) box.append(line('코드', data.code));
+      box.append(line('설치 목록 원천', 'package-lock.json(실제 설치 버전)'));
+      box.append(line('lockfileVersion', data.lockfileVersion != null ? String(data.lockfileVersion) : '확인 불가'));
+      box.append(line('lockfileHash', data.lockfileHash || '확인 불가'));
+      box.append(line('조회 시각(checkedAt)', data.checkedAt || '확인 불가'));
+      if (data.excluded && Number.isSafeInteger(data.excluded.count)) {
+        box.append(line('조회 제외', `${data.excluded.count}건(허용 목록 밖·비공개 패키지는 외부로 보내 조회하지 않음)`));
+      }
+      if (scanStatus === 'not_checked' || scanStatus === 'not_configured' || scanStatus === 'unverifiable') {
+        box.append(line('안내', '조회하지 못한 상태이며 "취약점 없음"이 아닙니다.'));
+      }
+      if (scanStatus === 'partial') {
+        box.append(line('안내', '일부 패키지 조회가 실패했습니다. 이미 받은 취약점 ID 는 지우지 않고 보여 줍니다.'));
+      }
+
+      const packages = Array.isArray(data.packages) ? data.packages : [];
+      if (packages.length === 0) {
+        box.append(line('패키지', scanStatus === 'complete' ? '조회 대상 패키지가 없습니다.' : '표시할 패키지 결과가 없습니다(미조회·확인 불가).'));
+        return finish();
+      }
+      const list = document.createElement('ul');
+      list.className = 'student-packages';
+      for (const pkg of packages) {
+        const vulns = Array.isArray(pkg.vulnerabilities) ? pkg.vulnerabilities : [];
+        // ^1.2.0 같은 범위는 정확한 설치 버전이 아니므로 대조 결과로 쓰지 않는다.
+        const exact = typeof pkg.version === 'string' && EXACT_VERSION.test(pkg.version);
+        let pkgStatus = Object.hasOwn(PACKAGE_STATUS_TEXT, pkg.status) ? pkg.status : 'unverifiable';
+        if (!exact) pkgStatus = 'unverifiable';
+        const li = document.createElement('li');
+        li.className = 'student-package';
+        li.dataset.studentPackageName = pkg.name;
+        li.dataset.studentPackageVersion = pkg.version;
+        const statusText = pkgStatus === 'unverifiable' && vulns.length > 0
+          ? '일부 확인·전체 조회 확인 불가'
+          : PACKAGE_STATUS_TEXT[pkgStatus];
+        li.append(line('패키지', `${pkg.name}@${pkg.version}`));
+        li.append(line('설치 버전', exact ? `${pkg.version}(package-lock.json 정확한 버전)` : `${pkg.version}(정확한 설치 버전 아님 · 확인 불가)`, !exact));
+        li.append(line('결과', `${statusText}(${pkgStatus})`, pkgStatus !== 'none_found'));
+        li.append(line('출처(source)', pkg.source || '확인 불가'));
+        li.append(line('조회 시각(checkedAt)', pkg.checkedAt || '확인 불가'));
+        if (vulns.length > 0) {
+          const ul = document.createElement('ul');
+          ul.className = 'student-text-rows';
+          for (const v of vulns) {
+            const item = document.createElement('li');
+            item.textContent = `${v.id} · 수정 시각(modified) ${v.modified || '확인 불가'}`;
+            ul.append(item);
+          }
+          li.append(ul);
+        }
+        list.append(li);
+      }
+      box.append(list);
+      return finish();
+    },
     // 17단계: AI 연결 점검 결과(idle/loading/ok/error)를 표시한다.
     // 연결 점검과 실제 사건 설명 실행은 다르다는 것을 분명히 한다. 매 호출 새 DOM 반환(이전 결과 미보관).
     // 받는 값: { status, mode, data?, error?, checkedAt, explanationAccepted }
