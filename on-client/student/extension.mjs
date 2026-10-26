@@ -196,6 +196,22 @@ function appendExplainFailure(box, code, message, reason) {
   box.append(line('안내', '기록은 그대로입니다. AI 설명 실패는 과제 실패가 아니며, 업무 앱 판정과 보안 기록은 계속 동작합니다.'));
 }
 
+// 19단계(보안 조치 상태)용. status 마다 뜻이 다른 문장. ACK(pending)·전달 중(executing)은 성공이 아니다.
+const STATUS_OF_ACTION = {
+  idle: '아직 미실행',
+  loading: '조치 준비 또는 결과 조회 중 · 미실행',
+  prepared: '준비됨 · 미실행(사람 확인 전)',
+  executing: '서버에 전달 중 · 결과 없음',
+  pending: '서버 접수·처리 중 · 효과 미확인',
+  succeeded: '효과 확인',
+  denied: '연동 시스템 거절',
+  failed: '연동 시스템 실패',
+  unknown: '결과 불명 · 효과 없음으로 판단 금지',
+  expired: '확인 기한 지남 · 다시 준비 필요',
+  error: '요청 처리 안 됨',
+};
+const ACTION_WARN = new Set(['pending', 'denied', 'failed', 'unknown', 'expired', 'error']);
+
 export function createStudentView(/* { api, onChange } */) {
   return {
     // 13단계: 지금 로그인한 사용자·기기·세션을 상태에 맞게 보여 주고,
@@ -724,6 +740,111 @@ export function createStudentView(/* { api, onChange } */) {
       box.append(line('실행 여부', '실행되지 않음(executed=false). 설명·제안만으로 보안 조치를 실행하지 않습니다.'));
       return finish();
     },
-    renderAction() { return '학생 구현 대기: 현재 사건·조치·실제 대상·사람 확인·ACK와 원천 효과·unknown을 구분하세요.'; },
+    // 19단계: AI 조치 제안과 실제 처리(사람 확인 → 서버 전달 → 결과 재조회)를 구분해 표시한다.
+    // 받는 값: { status, event, actionId, target, receipt, observation, message, confirmationExpiresAt?, error? }
+    //   status: idle·loading·executing·prepared·pending·succeeded·denied·failed·unknown·error·expired
+    //   target: { id, generation } | null, receipt: { requestId, receiptId, eventId, actionId, status, version, replayed, superseded? } | null
+    //   observation: { observedAt, effectApplied } | null
+    // 학생 코드는 조치 버튼·POST 요청·확인 티켓을 만들지 않는다(티켓은 제공 화면 메모리에만 있고 여기로 오지 않는다).
+    // 매 호출 새 DOM 을 돌려주므로 새 입력이 오면 이전 대상·요청·결과 표시는 남지 않는다.
+    renderAction(actionData) {
+      const s = actionData || {};
+      const root = document.createElement('div');
+      root.className = 'student-action';
+      const box = document.createElement('section');
+      box.className = 'identity-section';
+      const heading = document.createElement('h4');
+      heading.className = 'identity-title';
+      heading.textContent = '보안 조치 상태';
+      box.append(heading);
+      root.append(box);
+
+      const event = s.event || null;
+      const receipt = s.receipt || null;
+      const target = s.target || null;
+      const observation = s.observation || null;
+
+      // 현재 의도(사건·조치)와 서버 영수증이 같은 대상인지 대조한다.
+      // 최소 unknown 응답(requestId·status 만 있음)은 eventId 가 없으므로 대조 대상에서 뺀다.
+      const intentMismatch = Boolean(receipt && event && (
+        (receipt.eventId !== undefined && receipt.eventId !== event.id)
+        || (receipt.actionId !== undefined && receipt.actionId !== s.actionId)));
+
+      let status = STATUS_OF_ACTION[s.status] ? s.status : 'unknown';
+      // 효과 확인은 succeeded 이면서 연동 시스템 관측 effectApplied===true 일 때만. 아니면 결과 불명.
+      const effectConfirmed = status === 'succeeded' && observation !== null && observation.effectApplied === true
+        && Boolean(observation.observedAt) && !intentMismatch;
+      if (status === 'succeeded' && !effectConfirmed) status = 'unknown';
+      if (intentMismatch && ['pending', 'succeeded'].includes(status)) status = 'unknown';
+
+      box.append(line('상태', `${STATUS_OF_ACTION[status]}(${status})`, ACTION_WARN.has(status)));
+
+      switch (status) {
+        case 'idle':
+          box.append(line('안내', s.message || '조치 제안은 아직 실행되지 않았습니다.'));
+          box.append(line('조치 준비', '현재 기록에 연동 시스템이 지원하는 조치(supportedActions)가 없으면 「조치 준비」 버튼이 나오지 않는 것이 정상입니다.'));
+          break;
+        case 'loading':
+          box.append(line('안내', '조치 준비 또는 결과 조회 중입니다. 아직 실행된 조치가 아니며 결과도 확인되지 않았습니다.'));
+          break;
+        case 'prepared':
+          box.append(line('사람 확인', '아직 미실행입니다. 아래 실제 대상과 확인 기한을 읽고, 맞으면 제공 화면의 「대상과 조치를 확인했으며 집행합니다」 버튼을 직접 누르세요. 누르기 전에는 서버에 전달되지 않습니다.'));
+          box.append(line('확인 기한', s.confirmationExpiresAt || '확인 불가'));
+          break;
+        case 'executing':
+          box.append(line('안내', '사람 확인 뒤 서버에 전달 중입니다. 결과가 아직 없으며 완료 아님입니다.'));
+          break;
+        case 'pending':
+          box.append(line('안내', '서버가 요청을 접수(ACK)해 처리 중입니다. 접수는 실행 성공이나 효과 확인이 아닙니다. 결과는 제공 화면의 「원천 결과만 재조회」(연동 시스템 결과 재조회)로 확인하세요.'));
+          break;
+        case 'succeeded':
+          box.append(line('관측 시각', observation.observedAt));
+          box.append(line('관측 결과', 'effectApplied: true'));
+          box.append(line('영수증 ID(receiptId)', (receipt && receipt.receiptId) || '확인 불가'));
+          break;
+        case 'denied':
+        case 'failed':
+          box.append(line('사유', (s.error && s.error.message) || s.message || '확인 불가'));
+          break;
+        case 'expired':
+          box.append(line('안내', '사람 확인 기한이 지나 이번 준비로는 집행할 수 없습니다. 보안 기록에서 조치를 다시 준비하세요.'));
+          break;
+        case 'error':
+          box.append(line('오류 코드', (s.error && s.error.code) || '확인 불가'));
+          box.append(line('사유', (s.error && s.error.message) || '확인 불가'));
+          box.append(line('안내', '요청이 처리되지 않았습니다. 필요하면 현재 기록에서 다시 준비하세요.'));
+          break;
+        default: // unknown
+          box.append(line('안내', '결과 불명입니다. 성공으로도, 효과 없음으로도 판단하지 마세요. 조치를 다시 집행하지 말고 제공 화면의 「원천 결과만 재조회」(연동 시스템 결과 재조회)로 결과만 다시 조회하세요.'));
+          if (s.status === 'succeeded' && !intentMismatch) box.append(line('사유', '성공 응답이지만 연동 시스템 관측(effectApplied: true·관측 시각)이 없어 효과를 확인할 수 없습니다.'));
+          if (intentMismatch) box.append(line('사유', '서버 영수증의 사건·조치가 현재 선택과 맞지 않아 이 결과를 현재 조치의 결과로 쓸 수 없습니다.'));
+          if (s.error && s.error.message) box.append(line('서버 안내', s.error.message));
+          break;
+      }
+
+      // 현재 의도·요청 식별값을 받은 범위에서만 글자로 보여 준다(만들거나 저장하지 않음).
+      if (event) {
+        box.append(line('사건 ID', event.id));
+        const evidenceIds = Array.isArray(event.evidence) ? event.evidence.map((row) => row.id) : [];
+        box.append(line('근거 ID', evidenceIds.length > 0 ? evidenceIds.join(', ') : '없음'));
+      }
+      if (s.actionId) box.append(line('조치(actionId)', s.actionId));
+      if (target) box.append(line('실제 대상', `${target.id} · generation ${target.generation}`));
+      if (receipt) {
+        if (receipt.requestId) box.append(line('요청 ID(requestId)', receipt.requestId));
+        if (receipt.receiptId && status !== 'succeeded') box.append(line('영수증 ID(receiptId)', receipt.receiptId));
+        if (receipt.version !== undefined) box.append(line('버전(version)', String(receipt.version)));
+        // 중복 방지: 같은 requestId 의 기존 접수 결과를 다시 받은 것이지 조치를 한 번 더 실행한 것이 아니다.
+        if (receipt.replayed === true) box.append(line('중복 방지', '같은 요청(requestId)의 기존 처리 결과를 다시 받은 것입니다(replayed). 조치를 한 번 더 실행하지 않았습니다.'));
+        if (receipt.superseded === true) box.append(line('이전 조회', '이전 조회 결과는 최신 결과를 대신하지 않습니다(superseded).'));
+      }
+      box.append(line('구분', 'AI 제안은 실행이 아닙니다. 사람 확인 → 서버 전달 → 연동 시스템 결과 재조회 순서로만 처리되며, 이 칸에는 실행 버튼이 없습니다. 같은 조치를 다시 집행하지 말고 결과만 재조회하세요.'));
+      box.append(line('취소 안내', '「조치 화면 취소」는 화면 상태만 지웁니다. 이미 서버에 전달된 조치 효과를 되돌리지 않습니다.'));
+
+      // 현재 사건·요청과 맞게 그린 경우에만 식별 속성을 붙인다.
+      if (event && !intentMismatch) root.dataset.studentActionEvent = event.id;
+      if (receipt && receipt.requestId && !intentMismatch) root.dataset.studentActionRequest = receipt.requestId;
+      return root;
+    },
   };
 }
