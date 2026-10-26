@@ -35,3 +35,4 @@ npm start도 같은 서버를 켭니다. 기본 실행은 실제 회사 시스�
 - 구성: 브라우저(`public/`) → 로컬 앱 서버(`src/server.mjs`, 127.0.0.1:5189) → 접근 제어·XDR 원천(SDP) / AI 게이트웨이 / OSV.
 - 지원 환경과 버전: 시작 틀 0.2.11, Node.js 24.19.0 기준(이 PC 확인은 v24.11.0), Windows PowerShell, 외부 npm 의존성 없음.
 - 실행 절차·구성도(Mermaid)·제공/학생 경계·확인한 기능·오류별 복구·미확인 범위: [docs/STUDENT_RUNBOOK.md](docs/STUDENT_RUNBOOK.md)
+- 새 폴더 재현 기록·버전(검증 중 버전)·데이터 보존 계획·누적 기능 표(22단계): [docs/STUDENT_RELEASE_RECORD.md](docs/STUDENT_RELEASE_RECORD.md), 모의 점검 스크립트: `docs/student-checks/`
