@@ -8,7 +8,7 @@
 |---|---|
 | 저장소 | https://github.com/prjsghq7/choi-bujang-secret-vault (공개, 브랜치 `main`) |
 | 재현한 커밋 | `d914d72329159abccfec4968b94c6fcdaf2f1beb` (2026-10-26 17:11 +0900) |
-| 제출 커밋 | 위 커밋 바로 다음에 이 문서와 `docs/student-checks/*.mjs`(모의 점검 스크립트)만 추가한 커밋. 서버·화면·학생 render 함수·설정 견본·실행 도구는 바뀌지 않음. 대조: `git diff d914d72 <제출 커밋> --stat` 에 이 두 종류 파일만 나와야 함 |
+| 제출 커밋 | 위 커밋 뒤에 문서만 더한 커밋(ALEPH 22단계 폼에 적은 40자리 커밋). 추가·변경 파일: 이 문서, `docs/student-checks/mock-s18~20.mjs`(모의 점검 스크립트), `README.md` 「학생 작성 부분」 링크 한 줄. 서버·화면·학생 render 함수·설정 견본·실행 도구는 바뀌지 않음. 대조: `git diff d914d72 <제출 커밋> --stat` 에 이 파일들만 나와야 함 |
 | 앱 버전 | 케셰브 학생 최종 제출본 · **검증 중 버전**(v1.0 아님). 시작 틀 `alekov-client-starter` 0.2.11, 서버 진단 `version` 0.1.0 |
 | v1.0 이 아닌 이유 | 실제 SDP 원천 연결, 앱 안 AI 실제 설명(verified), 조치 실집행·결과 재조회, OSV 외부 조회가 미완료·미확인(7절) |
 
