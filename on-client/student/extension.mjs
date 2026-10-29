@@ -232,7 +232,7 @@ const EXACT_VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/
 // 버튼을 누를 때만 한 번 읽어 최근 표본끼리 차이를 보여 준다. 자동 반복 조회는 하지 않는다.
 const PC_SCHEMA = 'aleph.on.pc-status.v1';
 const PC_PATH = '/api/pc/status';
-const PC_SAMPLE_MAX = 5;
+const PC_SAMPLE_MAX = 12;
 const PC_REASON = {
   permission_denied: '권한 부족(관리자 권한이 필요한 항목이며 바꾸지 않습니다)',
   query_failed: '조회 실패',
@@ -262,7 +262,7 @@ function pcSample(data) {
     diskFree: ok('disk') ? percent(m.disk.freeBytes, m.disk.totalBytes) : null,
   };
 }
-// 상태 카드 표시: 색만으로 구분하지 않도록 기호와 글자를 함께 쓴다.
+// 상태 표시: 색만으로 구분하지 않도록 기호와 글자를 함께 쓴다.
 const CARD_OK = '● 정상';
 const CARD_WARN = '▲ 주의';
 const CARD_UNKNOWN = '? 확인 불가';
@@ -271,22 +271,88 @@ function pctCard(value, metric, isWarn, detail) {
   if (value === null) return [CARD_UNKNOWN, pcReason(metric)];
   return [isWarn(value) ? CARD_WARN : CARD_OK, detail(value)];
 }
-// 0~100% 값을 글자 막대로 그린다(그래프 라이브러리·style 속성 없이 textContent 로만). null 은 '·'.
-const SPARK = '▁▂▃▄▅▆▇█';
-function spark(values) {
-  return values.map(v => (v === null ? '·' : SPARK[Math.min(7, Math.max(0, Math.round((v / 100) * 7)))])).join('');
-}
 function deltaText(now, before) {
   if (now === null || before === null || before === undefined) return '비교 불가';
   const d = Math.round((now - before) * 10) / 10;
   return d === 0 ? '변화 없음' : `${d > 0 ? '▲' : '▼'} ${Math.abs(d)}%p`;
 }
+// 관제 대시보드 스타일. CSP(style-src 'self') 아래에서 inline style 속성·<style> 없이 쓰도록
+// 생성한 스타일시트(adoptedStyleSheets)로 한 번만 붙인다. 지원하지 않는 브라우저는 기본 모양 그대로 읽힌다.
+// 막대 길이는 5% 단계 클래스(kgh-w0~kgh-w20, kgh-h0~kgh-h20)로 정한다.
+const KGH_CSS = `
+.kgh-dash{display:grid;gap:14px;margin-top:8px}
+.kgh-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.kgh-head h4{margin:0;font-size:1rem;color:var(--text)}
+.kgh-head .kgh-when{color:var(--muted);font-size:.85rem}
+.kgh-btn{border:0;border-radius:8px;padding:6px 14px;background:var(--accent);color:#fff;font-weight:600;cursor:pointer}
+.kgh-btn:disabled{opacity:.6;cursor:progress}
+.kgh-btn:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.kgh-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;list-style:none;margin:0;padding:0}
+@media (max-width:720px){.kgh-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kgh-tile{border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:10px 12px;display:grid;gap:4px;min-width:0}
+.kgh-tile-label{font-size:.8rem;color:var(--muted)}
+.kgh-tile-value{font-size:1.45rem;font-weight:700;line-height:1.2;overflow-wrap:anywhere}
+.kgh-tile-sub{font-size:.75rem;color:var(--muted);overflow-wrap:anywhere}
+.kgh-badge{justify-self:start;font-size:.75rem;font-weight:600;border-radius:999px;padding:1px 8px}
+.kgh-ok{background:var(--allow-soft);color:var(--allow)}
+.kgh-warn{background:var(--challenge-soft);color:var(--challenge)}
+.kgh-unknown{background:var(--unknown-soft);color:var(--unknown)}
+.kgh-tile[data-state=warn]{border-color:var(--challenge)}
+.kgh-tile[data-state=unknown] .kgh-tile-value{color:var(--unknown);font-size:1.05rem}
+.kgh-panel{border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:12px}
+.kgh-panel h5{margin:0 0 8px;font-size:.9rem}
+.kgh-note{margin:6px 0 0;font-size:.78rem;color:var(--muted)}
+.kgh-chart{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.kgh-series-title{font-size:.8rem;color:var(--muted);margin-bottom:4px}
+.kgh-bars{display:flex;align-items:flex-end;gap:4px;height:84px;border-bottom:1px solid var(--border);padding:0 2px;list-style:none;margin:0}
+.kgh-bar{flex:1 1 0;min-width:6px;max-width:28px;border-radius:4px 4px 0 0;background:var(--accent)}
+.kgh-bar.kgh-na{background:repeating-linear-gradient(45deg,var(--unknown-soft) 0 4px,var(--border) 4px 8px);height:100%;opacity:.8}
+.kgh-meter{display:grid;grid-template-columns:8.5em minmax(0,1fr);gap:4px 10px;align-items:center;margin:6px 0}
+.kgh-track{display:block;height:10px;border-radius:999px;background:var(--unknown-soft);overflow:hidden}
+.kgh-fill{display:block;height:100%;border-radius:999px;background:var(--accent)}
+.kgh-fill.kgh-hot{background:var(--challenge)}
+.kgh-track.kgh-na{background:repeating-linear-gradient(45deg,var(--unknown-soft) 0 6px,var(--border) 6px 12px)}
+.kgh-meter-sub{grid-column:2;font-size:.75rem;color:var(--muted)}
+.kgh-meter-sub.kgh-warn-text{color:var(--challenge);font-weight:600}
+.kgh-rows{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.kgh-rows li{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 12px;background:var(--bg);border-radius:8px;padding:8px 10px}
+.kgh-rows .kgh-v{font-weight:600}
+.kgh-rows .kgh-v.kgh-warn-text{color:var(--challenge)}
+.kgh-alert{border:1px solid var(--challenge);background:var(--challenge-soft);color:var(--text);border-radius:10px;padding:10px 12px}
+.kgh-alert strong{display:block;color:var(--challenge)}
+.kgh-chips{display:flex;gap:6px;margin-bottom:8px}
+.kgh-chip{border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:2px 10px;font-size:.8rem;cursor:pointer}
+.kgh-chip[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#fff}
+.kgh-log{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:.85rem}
+.kgh-log li{display:flex;gap:10px;background:var(--bg);border-radius:6px;padding:5px 8px}
+.kgh-log time{color:var(--muted);font-variant-numeric:tabular-nums}
+${Array.from({ length: 21 }, (_, i) => `.kgh-w${i}{width:${i * 5}%}.kgh-h${i}{height:${Math.max(i * 5, 2)}%}`).join('')}
+`;
+let kghStyled = false;
+function ensureKghStyle() {
+  if (kghStyled) return;
+  kghStyled = true;
+  try {
+    if (typeof CSSStyleSheet !== 'function' || !('adoptedStyleSheets' in document)) return;
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(KGH_CSS);
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+  } catch { /* 스타일 없이도 글자로 모두 읽힌다 */ }
+}
+const step5 = v => Math.min(20, Math.max(0, Math.round(v / 5)));
+function el(tag, cls, text) {
+  const node = document.createElement(tag);
+  if (cls) node.className = cls;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+const STATE_CLASS = { [CARD_OK]: ['ok', 'kgh-ok'], [CARD_WARN]: ['warn', 'kgh-warn'], [CARD_UNKNOWN]: ['unknown', 'kgh-unknown'] };
 
 export function createStudentView({ api, onChange } = {}) {
   // 20단계: 마지막으로 표시한 패키지 조회 시각. 이보다 오래된 응답은 늦게 도착한 이전 응답으로 보고 표시하지 않는다.
   let lastVulnCheckedMs = NaN;
   // 마무리: PC 추이 표본(메모리에만, 최신이 맨 앞), 진행 중 여부, 마지막 실패, 다시 그린 뒤 버튼 초점 복원 여부.
-  const pc = { samples: [], log: [], pending: false, failure: null, refocus: false };
+  const pc = { samples: [], log: [], filter: 'all', pending: false, failure: null, refocus: false, refocusChip: null };
   async function refreshPc() {
     if (pc.pending || !api || typeof api.get !== 'function') return;
     pc.pending = true;
@@ -296,15 +362,19 @@ export function createStudentView({ api, onChange } = {}) {
     try { result = await api.get(PC_PATH); } catch { result = { ok: false, error: { code: 'NETWORK_ERROR', message: '조회 중 오류가 났습니다.' } }; }
     pc.pending = false;
     const sample = result && result.ok ? pcSample(result.data) : null;
-    const log = (text, warn) => { pc.log = [{ at: Date.now(), text, warn }, ...pc.log].slice(0, PC_LOG_MAX); };
+    // kind: ok(정상) · warn(주의·실패) · unknown(확인 불가) — 최근 기록 거르기에 쓴다.
+    const log = (text, kind) => { pc.log = [{ at: Date.now(), text, kind }, ...pc.log].slice(0, PC_LOG_MAX); };
     if (sample) {
       // 이미 표시한 표본보다 오래된(늦게 도착한) 응답은 쓰지 않는다.
       if (!pc.samples.length || sample.at > pc.samples[0].at) {
         pc.samples = [sample, ...pc.samples].slice(0, PC_SAMPLE_MAX);
         const unknown = ['cpu', 'memory', 'diskFree'].filter(k => sample[k] === null).length;
-        log(`● 다시 조회 성공 · CPU ${sample.cpu ?? '확인 불가'}${sample.cpu === null ? '' : '%'} · 메모리 ${sample.memory ?? '확인 불가'}${sample.memory === null ? '' : '%'}${unknown ? ` · 확인 불가 ${unknown}개` : ''}`, unknown > 0);
+        const hot = (sample.cpu ?? 0) >= 90 || (sample.memory ?? 0) >= 90 || (sample.diskFree !== null && sample.diskFree < 10);
+        const kind = unknown ? 'unknown' : hot ? 'warn' : 'ok';
+        const mark = { ok: '●', warn: '▲', unknown: '?' }[kind];
+        log(`${mark} 다시 조회 성공 · CPU ${sample.cpu ?? '확인 불가'}${sample.cpu === null ? '' : '%'} · 메모리 ${sample.memory ?? '확인 불가'}${sample.memory === null ? '' : '%'}${unknown ? ` · 확인 불가 ${unknown}개` : ''}${hot ? ' · 주의 항목 있음' : ''}`, kind);
       } else {
-        log('? 늦게 도착한 이전 응답이라 표시하지 않음', true);
+        log('? 늦게 도착한 이전 응답이라 표시하지 않음', 'unknown');
       }
       pc.failure = null;
     } else if (result && result.ok) {
@@ -312,108 +382,166 @@ export function createStudentView({ api, onChange } = {}) {
     } else {
       pc.failure = (result && result.error) || { code: 'UNKNOWN_ERROR', message: '확인 불가' };
     }
-    if (pc.failure) log(`▲ 조회 실패 · ${pc.failure.code}`, true);
+    if (pc.failure) log(`▲ 조회 실패 · ${pc.failure.code}`, 'warn');
     pc.refocus = true;
     if (onChange) onChange();
   }
+  // 관제 대시보드형: 머리글(다시 조회) → 오류 안내 → 상태 카드 네 개 → 추이 그래프 → 연결과 기록 → 최근 기록.
   function renderPcTrend(sdpMode) {
-    const box = document.createElement('section');
-    box.className = 'identity-section';
+    ensureKghStyle();
+    const box = el('section', 'identity-section kgh-dash');
     box.setAttribute('aria-label', '내 PC 상태 추이 비교');
-    const heading = document.createElement('h4');
-    heading.className = 'identity-title';
-    heading.textContent = '내 PC 상태 추이 비교 (학생 추가 기능)';
-    box.append(heading);
-    box.append(line('안내', '위쪽 제공 카드 「내 PC 상태」와 같은 읽기 전용 조회를 버튼을 누를 때만 한 번 읽고, 최근 표본끼리 차이를 비교합니다.'));
+    const [latest, previous] = pc.samples;
+    const m = latest ? latest.metrics : {};
 
-    const button = document.createElement('button');
+    // 머리글: 제목 · 다시 조회 · 마지막 조회 상태
+    const head = el('div', 'kgh-head');
+    head.append(el('h4', null, '내 PC 관제 (학생 추가 기능)'));
+    const button = el('button', 'kgh-btn', pc.pending ? '조회 중…' : '다시 조회');
     button.type = 'button';
-    button.textContent = pc.pending ? '조회 중…' : '다시 조회';
     button.disabled = pc.pending;
     button.setAttribute('aria-busy', pc.pending ? 'true' : 'false');
     button.addEventListener('click', refreshPc);
-    box.append(button);
+    head.append(button);
+    const live = el('span', 'kgh-when', pc.pending ? '새로 읽는 중…(약 1~5초)'
+      : pc.failure ? `${timeText(pc.log[0] ? pc.log[0].at : Date.now())} 다시 조회 실패`
+        : latest ? `${timeText(latest.at)} 다시 조회 성공 · 출처: 이 PC 실측(local-pc)` : '아직 조회 전 · 「다시 조회」를 눌러 첫 값을 읽으세요');
+    live.setAttribute('role', 'status');
+    live.setAttribute('aria-live', 'polite');
+    head.append(live);
+    box.append(head);
     if (pc.refocus && !pc.pending) {
       pc.refocus = false;
       queueMicrotask(() => { if (button.isConnected) button.focus(); });
     }
+    box.append(el('p', 'kgh-note', '위쪽 제공 카드 「내 PC 상태」와 같은 읽기 전용 조회를 버튼을 누를 때만 한 번 읽습니다. 자동 반복 조회는 하지 않습니다.'));
 
-    const live = document.createElement('div');
-    live.setAttribute('role', 'status');
-    live.setAttribute('aria-live', 'polite');
-    box.append(live);
-    if (pc.pending) live.append(line('상태', '내 PC 값을 읽는 중입니다(약 1~5초).'));
-
+    // 조회 실패: 실패한 항목과 다음 행동. 이전 값은 「마지막 성공 표본」으로만 남긴다.
     if (pc.failure) {
-      live.append(line('조회 실패', `${pc.failure.code}: ${pc.failure.message || '확인 불가'}`, true));
-      const next = pc.failure.code === 'NOT_ALLOWED'
+      const alert = el('div', 'kgh-alert');
+      alert.setAttribute('role', 'alert');
+      alert.append(el('strong', null, `내 PC 값을 읽지 못했습니다 (${pc.failure.code})`));
+      alert.append(el('span', null, pc.failure.code === 'NOT_ALLOWED'
         ? '이 시작 틀은 학생 코드의 PC 조회를 허용하지 않습니다. 시작 틀을 0.2.18 이상으로 업데이트하세요.'
-        : '앱 서버가 켜져 있는지 확인한 뒤 「다시 조회」를 누르세요. 아래 값은 이전에 성공한 표본이며 이번 조회 결과가 아닙니다.';
-      live.append(line('다음 할 일', next));
+        : `${pc.failure.message || '확인 불가'} 앱 서버 창이 켜져 있는지 확인한 뒤 「다시 조회」를 누르세요.${latest ? ' 아래 값은 이전에 성공한 표본이며 이번 조회 결과가 아닙니다.' : ''}`));
+      box.append(alert);
     }
 
-    // 관제 대시보드형: ① 맨 위 상태 카드 네 개 → ② 추이 → ③ 세부 → ④ 최근 기록.
-    const [latest, previous] = pc.samples;
-    const m = latest ? latest.metrics : {};
-    const fw = m.firewall || {};
-    const cards = document.createElement('ul');
-    cards.className = 'student-pc-cards';
-    cards.setAttribute('aria-label', '상태 카드');
-    const card = (label, [mark, detail]) => {
-      const li = document.createElement('li');
-      li.append(line(label, `${mark} · ${detail}`));
-      cards.append(li);
-    };
-    if (!latest) {
-      for (const label of ['CPU 사용률', '메모리 사용량', '디스크 남은 공간', '방화벽']) card(label, [CARD_UNKNOWN, '미조회']);
-    } else {
-      card('CPU 사용률', pctCard(latest.cpu, m.cpu, v => v >= 90, v => `${v}%`));
-      card('메모리 사용량', pctCard(latest.memory, m.memory, v => v >= 90, v => `${v}% (${gib(m.memory.usedBytes)} / ${gib(m.memory.totalBytes)})`));
-      card('디스크 남은 공간', pctCard(latest.diskFree, m.disk, v => v < 10, v => `${v}% (${gib(m.disk.freeBytes)})`));
-      card('방화벽', fw.state === 'ok'
-        ? [fw.profiles.every(p => p.enabled) ? CARD_OK : CARD_WARN, fw.profiles.map(p => `${p.name} ${p.enabled ? '켜짐' : '꺼짐'}`).join(' · ')]
-        : [CARD_UNKNOWN, pcReason(fw)]);
-    }
-    box.append(cards);
-
-    if (!latest) {
-      if (!pc.pending && !pc.failure) box.append(line('표본', '아직 조회하지 않았습니다. 「다시 조회」를 눌러 첫 값을 읽으세요.'));
-    } else {
-      box.append(line('측정 시각', `${timeText(latest.at)} · 출처: 이 PC 실측(local-pc)${pc.failure ? ' · 마지막 성공 표본' : ''}`));
-
-      const trend = document.createElement('section');
-      trend.setAttribute('aria-label', '추이');
-      const trendTitle = document.createElement('h5');
-      trendTitle.textContent = `추이 (오래된 → 최근, 표본 ${pc.samples.length}/${PC_SAMPLE_MAX}개 · 그래프는 0~100% 기준, ·=확인 불가)`;
-      trend.append(trendTitle);
-      const oldestFirst = [...pc.samples].reverse();
-      for (const [label, key] of [['CPU', 'cpu'], ['메모리', 'memory'], ['디스크 남은 공간', 'diskFree']]) {
-        const values = oldestFirst.map(s => s[key]);
-        trend.append(line(label, `${spark(values)}  ${values.map(v => (v === null ? '확인 불가' : `${v}%`)).join(' → ')} · 직전 대비 ${deltaText(latest[key], previous && previous[key])}`));
+    // ① 상태 카드 네 개
+    const tiles = el('ul', 'kgh-tiles');
+    tiles.setAttribute('aria-label', '상태 카드');
+    const tile = (label, [mark, detail], value, meter) => {
+      const [state, badgeClass] = STATE_CLASS[mark];
+      const li = el('li', 'kgh-tile');
+      li.dataset.state = state;
+      li.append(el('span', 'kgh-tile-label', label), el('span', 'kgh-tile-value', value));
+      if (meter !== undefined) {
+        const track = el('span', meter === null ? 'kgh-track kgh-na' : 'kgh-track');
+        if (meter !== null) track.append(el('span', `kgh-fill kgh-w${step5(meter)}${state === 'warn' ? ' kgh-hot' : ''}`));
+        li.append(track);
       }
-      if (pc.samples.length < 2) trend.append(line('비교', '표본이 하나뿐이라 아직 비교할 수 없습니다. 잠시 뒤 「다시 조회」를 누르세요.'));
-      box.append(trend);
-
-      const net = m.network || {};
-      box.append(line('네트워크 구성', net.state === 'ok' ? `외부 인터페이스 ${net.interfaceCount}개 · IPv4 주소 ${net.ipv4Count}개` : `확인 불가 · ${pcReason(net)}`, net.state !== 'ok'));
-      const ev = m.events || {};
-      box.append(line('Windows 기록(24시간)', ev.state === 'ok'
-        ? `경고 ${ev.warningCount}건 · 오류 ${ev.errorCount}건${ev.truncated ? ' · 최근 5,000건까지만 집계(일부)' : ''}`
-        : `확인 불가 · ${pcReason(ev)}`, ev.state !== 'ok'));
-      box.append(line('주의', '경고·오류 건수는 침해나 공격 탐지 결과가 아니며, 0건이거나 방화벽이 켜져 있다고 PC가 안전하다는 뜻도 아닙니다.'));
-      if (latest.memory !== null && latest.memory >= 90) box.append(line('메모리', '사용량이 90% 이상입니다. 안 쓰는 프로그램을 닫아 보세요', true));
-      if (latest.diskFree !== null && latest.diskFree < 10) box.append(line('디스크', '남은 공간이 10% 미만입니다', true));
+      li.append(el('span', `kgh-badge ${badgeClass}`, mark), el('span', 'kgh-tile-sub', detail));
+      tiles.append(li);
+    };
+    const when = latest ? ` · ${timeText(latest.at)}${pc.failure ? ' (마지막 성공)' : ''}` : '';
+    if (!latest) {
+      for (const label of ['CPU 사용률', '메모리 사용량', '디스크 남은 공간', '방화벽']) tile(label, [CARD_UNKNOWN, '미조회'], '–');
+    } else {
+      const pct = v => (v === null ? '확인 불가' : `${v}%`);
+      tile('CPU 사용률', pctCard(latest.cpu, m.cpu, v => v >= 90, () => `실측 · 200ms 표본${when}`), pct(latest.cpu), latest.cpu);
+      tile('메모리 사용량', pctCard(latest.memory, m.memory, v => v >= 90,
+        () => `${gib(m.memory.usedBytes)} / ${gib(m.memory.totalBytes)}${when}`), pct(latest.memory), latest.memory);
+      tile('디스크 남은 공간', pctCard(latest.diskFree, m.disk, v => v < 10,
+        () => `${gib(m.disk.freeBytes)} 남음 · 앱 폴더 드라이브${when}`), pct(latest.diskFree), latest.diskFree);
+      const fw = m.firewall || {};
+      const fwOn = fw.state === 'ok' ? fw.profiles.filter(p => p.enabled).length : 0;
+      tile('방화벽', fw.state === 'ok'
+        ? [fwOn === 3 ? CARD_OK : CARD_WARN, `${fw.profiles.map(p => `${p.name} ${p.enabled ? '켜짐' : '꺼짐'}`).join(' · ')} · 읽기만 함`]
+        : [CARD_UNKNOWN, pcReason(fw)],
+      fw.state === 'ok' ? (fwOn === 3 ? '켜짐' : `${fwOn}/3 켜짐`) : '확인 불가');
     }
-    box.append(line('SDP 연결(PC 조회와 별개)', SDP_MODE[sdpMode] || SDP_MODE.unknown, sdpMode !== 'connected'));
+    box.append(tiles);
 
-    const logBox = document.createElement('section');
-    logBox.setAttribute('aria-label', '최근 기록');
-    const logTitle = document.createElement('h5');
-    logTitle.textContent = `최근 기록 (최신이 위, 최대 ${PC_LOG_MAX}개 · 앱을 새로 고치면 지워짐)`;
-    logBox.append(logTitle);
-    if (!pc.log.length) logBox.append(line('기록', '아직 없음'));
-    for (const entry of pc.log) logBox.append(line(timeText(entry.at), entry.text, entry.warn));
-    box.append(logBox);
+    if (latest) {
+      // ② 추이 그래프(CPU·메모리, 오래된 → 최근). 막대마다 시각·값을 글자로도 붙인다.
+      const chartPanel = el('section', 'kgh-panel');
+      chartPanel.append(el('h5', null, `시간에 따른 변화 (표본 ${pc.samples.length}/${PC_SAMPLE_MAX}개, 오래된 → 최근)`));
+      const chart = el('div', 'kgh-chart');
+      const oldestFirst = [...pc.samples].reverse();
+      for (const [label, key] of [['CPU 사용률', 'cpu'], ['메모리 사용량', 'memory']]) {
+        const series = el('div');
+        series.append(el('div', 'kgh-series-title', label));
+        const bars = el('ul', 'kgh-bars');
+        bars.setAttribute('aria-label', `${label} 막대 그래프`);
+        for (const s of oldestFirst) {
+          const v = s[key];
+          const bar = el('li', v === null ? 'kgh-bar kgh-na' : `kgh-bar kgh-h${step5(v)}`);
+          const text = `${timeText(s.at)} · ${v === null ? '확인 불가' : `${v}%`}`;
+          bar.setAttribute('title', text);
+          bar.setAttribute('aria-label', text);
+          bars.append(bar);
+        }
+        series.append(bars);
+        series.append(el('p', 'kgh-note', `${oldestFirst.map(s => (s[key] === null ? '확인 불가' : `${s[key]}%`)).join(' → ')} · 직전 대비 ${deltaText(latest[key], previous && previous[key])}`));
+        chart.append(series);
+      }
+      chartPanel.append(chart);
+      chartPanel.append(el('p', 'kgh-note', pc.samples.length < 2
+        ? '표본이 하나뿐이라 아직 비교할 수 없습니다. 잠시 뒤 「다시 조회」를 누르세요.'
+        : `디스크 남은 공간: ${oldestFirst.map(s => (s.diskFree === null ? '확인 불가' : `${s.diskFree}%`)).join(' → ')} · 빗금 막대는 그 시각에 읽지 못한 값입니다. 앱을 새로 고치면 표본이 지워집니다.`));
+      box.append(chartPanel);
+
+      // ③ 연결과 기록(읽기만). PC 조회 결과와 SDP 연결 상태를 따로 보여 준다.
+      const connPanel = el('section', 'kgh-panel');
+      connPanel.append(el('h5', null, '연결과 기록'));
+      const rows = el('ul', 'kgh-rows');
+      const row = (label, value, warn) => {
+        const li = el('li');
+        li.append(el('span', null, label), el('span', warn ? 'kgh-v kgh-warn-text' : 'kgh-v', value));
+        rows.append(li);
+      };
+      const net = m.network || {};
+      row('네트워크 구성', net.state === 'ok' ? `외부 인터페이스 ${net.interfaceCount}개 · IPv4 ${net.ipv4Count}개` : `? 확인 불가 · ${pcReason(net)}`, net.state !== 'ok');
+      const fw = m.firewall || {};
+      row('방화벽 설정', fw.state === 'ok' ? `${fw.profiles.every(p => p.enabled) ? '켜짐' : '일부 꺼짐'} · 읽기만 함` : `? 확인 불가 · ${pcReason(fw)}`, fw.state !== 'ok' || fw.profiles.some(p => !p.enabled));
+      const ev = m.events || {};
+      row('Windows 경고·오류(24시간)', ev.state === 'ok'
+        ? `경고 ${ev.warningCount}건 · 오류 ${ev.errorCount}건${ev.truncated ? ' · 최근 5,000건까지만' : ''} · 침해 판정 아님`
+        : `? 확인 불가 · ${pcReason(ev)}`, ev.state !== 'ok');
+      row('SDP 서버', SDP_MODE[sdpMode] || SDP_MODE.unknown, sdpMode !== 'connected');
+      connPanel.append(rows);
+      connPanel.append(el('p', 'kgh-note', '경고·오류 건수는 침해나 공격 탐지 결과가 아니며, 0건이거나 방화벽이 켜져 있다고 PC가 안전하다는 뜻도 아닙니다. PC 조회 결과와 SDP 연결 상태는 따로 봅니다.'));
+      box.append(connPanel);
+    } else {
+      box.append(line('SDP 서버(PC 조회와 별개)', SDP_MODE[sdpMode] || SDP_MODE.unknown, sdpMode !== 'connected'));
+    }
+
+    // ④ 최근 기록(최신이 위). 종류별로 걸러 본다.
+    const logPanel = el('section', 'kgh-panel');
+    logPanel.setAttribute('aria-label', '최근 기록');
+    logPanel.append(el('h5', null, `최근 기록 (최신이 위, 최대 ${PC_LOG_MAX}개 · 앱을 새로 고치면 지워짐)`));
+    const chips = el('div', 'kgh-chips');
+    chips.setAttribute('role', 'group');
+    chips.setAttribute('aria-label', '기록 거르기');
+    for (const [key, label] of [['all', '전체'], ['warn', '주의'], ['unknown', '확인 불가']]) {
+      const chip = el('button', 'kgh-chip', label);
+      chip.type = 'button';
+      chip.setAttribute('aria-pressed', pc.filter === key ? 'true' : 'false');
+      chip.addEventListener('click', () => { pc.filter = key; pc.refocusChip = key; if (onChange) onChange(); });
+      if (pc.refocusChip === key) { pc.refocusChip = null; queueMicrotask(() => { if (chip.isConnected) chip.focus(); }); }
+      chips.append(chip);
+    }
+    logPanel.append(chips);
+    const shown = pc.log.filter(e => pc.filter === 'all' || e.kind === pc.filter);
+    const list = el('ol', 'kgh-log');
+    if (!shown.length) list.append(el('li', null, pc.log.length ? '이 종류의 기록이 없습니다' : '아직 기록이 없습니다'));
+    for (const entry of shown) {
+      const li = el('li');
+      li.append(el('time', null, timeText(entry.at)), el('span', null, entry.text));
+      list.append(li);
+    }
+    logPanel.append(list);
+    box.append(logPanel);
     return box;
   }
   return {

@@ -26,6 +26,7 @@ const queue=[
 let next=null;
 const v=createStudentView({api:{get:async path=>{if(path!=='/api/pc/status')throw new Error('unexpected path '+path);return next;}},onChange:()=>{}});
 const trend=()=>{const root=v.renderStatus({mode:'disconnected',notifications:[],devices:{status:'idle'},sessions:{status:'idle'},diagnostics:{}});return root.children.find(c=>c.attrs['aria-label']==='내 PC 상태 추이 비교');};
+const findTag=(n,tag)=>n.tag===tag?n:(n.children||[]).map(c=>findTag(c,tag)).find(Boolean);
 const show=(k,box)=>console.log(`[${k}]\n  ${box.textContent.replace(/안내: [^|]*\| /,'').slice(0,900)}`);
 show('조회 전',trend());
-for(const [k,res] of queue){next=res;const button=trend().children.find(c=>c.tag==='button');await button.handlers.click();show(k,trend());}
+for(const [k,res] of queue){next=res;const button=findTag(trend(),'button');await button.handlers.click();show(k,trend());}
