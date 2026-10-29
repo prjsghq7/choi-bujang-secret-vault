@@ -4,12 +4,12 @@
 - 과정명: 2026 KIT K-뉴딜 SKT ALEPH 공동 방어전
 - 앱 이름: KGH (Kill-Gate Host) — `student/appearance.json` 의 `appName`
 - 시작 틀: alekov-client-starter 0.2.21 (0.2.11 에서 공식 ZIP 으로 업데이트, 파일별 SHA-256 을 업데이트 도구의 고정 목록과 대조)
-- 화면 틀·포장: 관제 대시보드형(`dashboardPreset: student-first`) · 포장 없이 내 PC 에서 실행(`npm run package-app` 미실행)
+- 화면 틀·포장: 관제 대시보드형(포털 작전 브리핑에서 확정. 추이 칸을 「상태 카드 네 개 → 추이 → 세부 → 최근 기록」 순서로 구성, `dashboardPreset: student-first`) · 포장 없이 내 PC 에서 실행(`npm run package-app` 미실행)
 
 ## 2. 고른 핵심 기능 3개
 ### 핵심 기능 1 — 내 PC 상태 추이 비교
 - 제공된 부분: 「내 PC 상태」 카드와 읽기 전용 조회 `GET /api/pc/status`(`src/pc-status.mjs`, `public/pc-status-view.mjs`).
-- 내가 직접 개선한 부분: `student/extension.mjs` 의 `renderStatus` 안 추이 칸. 버튼을 누를 때만 조회하고 최근 표본 5개를 메모리에 두어 CPU·메모리·디스크의 직전 대비 변화(▲▼ %p)를 보여 줌. 측정 시각·출처·단위 표시, 메모리 90% 이상·디스크 10% 미만 주의, 늦게 도착한 오래된 응답 무시, 조회 중 버튼 잠금과 `aria-busy`, 결과 영역 `role=status`, 다시 그린 뒤 버튼 초점 복원.
+- 내가 직접 개선한 부분: `student/extension.mjs` 의 `renderStatus` 안 추이 칸. 맨 위 상태 카드 네 개(CPU·메모리·디스크·방화벽, ● 정상·▲ 주의·? 확인 불가 기호와 글자), 글자 막대 그래프 추이, 조회 성공·실패를 쌓는 최근 기록(최대 10개). 버튼을 누를 때만 조회하고 최근 표본 5개를 메모리에 두어 CPU·메모리·디스크의 직전 대비 변화(▲▼ %p)를 보여 줌. 측정 시각·출처·단위 표시, 메모리 90% 이상·디스크 10% 미만 주의, 늦게 도착한 오래된 응답 무시, 조회 중 버튼 잠금과 `aria-busy`, 결과 영역 `role=status`, 다시 그린 뒤 버튼 초점 복원.
 - 실제 확인 결과: 확인함(2026-10-29, 작성자 PC). 두 번 조회해 CPU ▼6.9%p, 메모리 ▲0.4%p, 디스크 변화 없음이 표시됨.
 - 잘못된 입력이나 연결 실패 때의 동작: 확인함. 서버를 끄고 누르면 `NETWORK_ERROR` 와 다음 할 일, 이전 값에 「마지막 성공 표본」 표시. 일부 확인 불가·`NOT_ALLOWED`·계약과 다른 응답·오래된 응답은 모의 점검으로만 확인.
 - 근거: `docs/student-checks/mock-pc-trend.mjs`(합성 값 8가지 경우), 이 문서 3절.

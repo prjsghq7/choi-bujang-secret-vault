@@ -262,6 +262,20 @@ function pcSample(data) {
     diskFree: ok('disk') ? percent(m.disk.freeBytes, m.disk.totalBytes) : null,
   };
 }
+// 상태 카드 표시: 색만으로 구분하지 않도록 기호와 글자를 함께 쓴다.
+const CARD_OK = '● 정상';
+const CARD_WARN = '▲ 주의';
+const CARD_UNKNOWN = '? 확인 불가';
+const PC_LOG_MAX = 10;
+function pctCard(value, metric, isWarn, detail) {
+  if (value === null) return [CARD_UNKNOWN, pcReason(metric)];
+  return [isWarn(value) ? CARD_WARN : CARD_OK, detail(value)];
+}
+// 0~100% 값을 글자 막대로 그린다(그래프 라이브러리·style 속성 없이 textContent 로만). null 은 '·'.
+const SPARK = '▁▂▃▄▅▆▇█';
+function spark(values) {
+  return values.map(v => (v === null ? '·' : SPARK[Math.min(7, Math.max(0, Math.round((v / 100) * 7)))])).join('');
+}
 function deltaText(now, before) {
   if (now === null || before === null || before === undefined) return '비교 불가';
   const d = Math.round((now - before) * 10) / 10;
@@ -272,7 +286,7 @@ export function createStudentView({ api, onChange } = {}) {
   // 20단계: 마지막으로 표시한 패키지 조회 시각. 이보다 오래된 응답은 늦게 도착한 이전 응답으로 보고 표시하지 않는다.
   let lastVulnCheckedMs = NaN;
   // 마무리: PC 추이 표본(메모리에만, 최신이 맨 앞), 진행 중 여부, 마지막 실패, 다시 그린 뒤 버튼 초점 복원 여부.
-  const pc = { samples: [], pending: false, failure: null, refocus: false };
+  const pc = { samples: [], log: [], pending: false, failure: null, refocus: false };
   async function refreshPc() {
     if (pc.pending || !api || typeof api.get !== 'function') return;
     pc.pending = true;
@@ -282,15 +296,23 @@ export function createStudentView({ api, onChange } = {}) {
     try { result = await api.get(PC_PATH); } catch { result = { ok: false, error: { code: 'NETWORK_ERROR', message: '조회 중 오류가 났습니다.' } }; }
     pc.pending = false;
     const sample = result && result.ok ? pcSample(result.data) : null;
+    const log = (text, warn) => { pc.log = [{ at: Date.now(), text, warn }, ...pc.log].slice(0, PC_LOG_MAX); };
     if (sample) {
       // 이미 표시한 표본보다 오래된(늦게 도착한) 응답은 쓰지 않는다.
-      if (!pc.samples.length || sample.at > pc.samples[0].at) pc.samples = [sample, ...pc.samples].slice(0, PC_SAMPLE_MAX);
+      if (!pc.samples.length || sample.at > pc.samples[0].at) {
+        pc.samples = [sample, ...pc.samples].slice(0, PC_SAMPLE_MAX);
+        const unknown = ['cpu', 'memory', 'diskFree'].filter(k => sample[k] === null).length;
+        log(`● 다시 조회 성공 · CPU ${sample.cpu ?? '확인 불가'}${sample.cpu === null ? '' : '%'} · 메모리 ${sample.memory ?? '확인 불가'}${sample.memory === null ? '' : '%'}${unknown ? ` · 확인 불가 ${unknown}개` : ''}`, unknown > 0);
+      } else {
+        log('? 늦게 도착한 이전 응답이라 표시하지 않음', true);
+      }
       pc.failure = null;
     } else if (result && result.ok) {
       pc.failure = { code: 'INVALID_RESPONSE', message: '내 PC 상태 응답 형식이 계약(aleph.on.pc-status.v1)과 다릅니다.' };
     } else {
       pc.failure = (result && result.error) || { code: 'UNKNOWN_ERROR', message: '확인 불가' };
     }
+    if (pc.failure) log(`▲ 조회 실패 · ${pc.failure.code}`, true);
     pc.refocus = true;
     if (onChange) onChange();
   }
@@ -330,40 +352,68 @@ export function createStudentView({ api, onChange } = {}) {
       live.append(line('다음 할 일', next));
     }
 
+    // 관제 대시보드형: ① 맨 위 상태 카드 네 개 → ② 추이 → ③ 세부 → ④ 최근 기록.
     const [latest, previous] = pc.samples;
+    const m = latest ? latest.metrics : {};
+    const fw = m.firewall || {};
+    const cards = document.createElement('ul');
+    cards.className = 'student-pc-cards';
+    cards.setAttribute('aria-label', '상태 카드');
+    const card = (label, [mark, detail]) => {
+      const li = document.createElement('li');
+      li.append(line(label, `${mark} · ${detail}`));
+      cards.append(li);
+    };
+    if (!latest) {
+      for (const label of ['CPU 사용률', '메모리 사용량', '디스크 남은 공간', '방화벽']) card(label, [CARD_UNKNOWN, '미조회']);
+    } else {
+      card('CPU 사용률', pctCard(latest.cpu, m.cpu, v => v >= 90, v => `${v}%`));
+      card('메모리 사용량', pctCard(latest.memory, m.memory, v => v >= 90, v => `${v}% (${gib(m.memory.usedBytes)} / ${gib(m.memory.totalBytes)})`));
+      card('디스크 남은 공간', pctCard(latest.diskFree, m.disk, v => v < 10, v => `${v}% (${gib(m.disk.freeBytes)})`));
+      card('방화벽', fw.state === 'ok'
+        ? [fw.profiles.every(p => p.enabled) ? CARD_OK : CARD_WARN, fw.profiles.map(p => `${p.name} ${p.enabled ? '켜짐' : '꺼짐'}`).join(' · ')]
+        : [CARD_UNKNOWN, pcReason(fw)]);
+    }
+    box.append(cards);
+
     if (!latest) {
       if (!pc.pending && !pc.failure) box.append(line('표본', '아직 조회하지 않았습니다. 「다시 조회」를 눌러 첫 값을 읽으세요.'));
     } else {
-      const m = latest.metrics;
       box.append(line('측정 시각', `${timeText(latest.at)} · 출처: 이 PC 실측(local-pc)${pc.failure ? ' · 마지막 성공 표본' : ''}`));
-      const row = (label, value, warnWhenNull, prevValue, unitText) => box.append(line(
-        label,
-        value === null ? `확인 불가 · ${unitText}` : `${value}% · ${unitText} · 직전 대비 ${deltaText(value, prevValue)}`,
-        value === null && warnWhenNull,
-      ));
-      row('CPU 사용률', latest.cpu, true, previous && previous.cpu, latest.cpu === null ? pcReason(m.cpu) : '200ms 표본');
-      row('메모리 사용', latest.memory, true, previous && previous.memory,
-        latest.memory === null ? pcReason(m.memory) : `${gib(m.memory.usedBytes)} / ${gib(m.memory.totalBytes)}`);
-      row('디스크 남은 공간', latest.diskFree, true, previous && previous.diskFree,
-        latest.diskFree === null ? pcReason(m.disk) : `${gib(m.disk.freeBytes)} 남음(앱 폴더 드라이브)`);
-      if (latest.memory !== null && latest.memory >= 90) box.append(line('메모리', '사용량이 90% 이상입니다. 안 쓰는 프로그램을 닫아 보세요', true));
-      if (latest.diskFree !== null && latest.diskFree < 10) box.append(line('디스크', '남은 공간이 10% 미만입니다', true));
+
+      const trend = document.createElement('section');
+      trend.setAttribute('aria-label', '추이');
+      const trendTitle = document.createElement('h5');
+      trendTitle.textContent = `추이 (오래된 → 최근, 표본 ${pc.samples.length}/${PC_SAMPLE_MAX}개 · 그래프는 0~100% 기준, ·=확인 불가)`;
+      trend.append(trendTitle);
+      const oldestFirst = [...pc.samples].reverse();
+      for (const [label, key] of [['CPU', 'cpu'], ['메모리', 'memory'], ['디스크 남은 공간', 'diskFree']]) {
+        const values = oldestFirst.map(s => s[key]);
+        trend.append(line(label, `${spark(values)}  ${values.map(v => (v === null ? '확인 불가' : `${v}%`)).join(' → ')} · 직전 대비 ${deltaText(latest[key], previous && previous[key])}`));
+      }
+      if (pc.samples.length < 2) trend.append(line('비교', '표본이 하나뿐이라 아직 비교할 수 없습니다. 잠시 뒤 「다시 조회」를 누르세요.'));
+      box.append(trend);
 
       const net = m.network || {};
       box.append(line('네트워크 구성', net.state === 'ok' ? `외부 인터페이스 ${net.interfaceCount}개 · IPv4 주소 ${net.ipv4Count}개` : `확인 불가 · ${pcReason(net)}`, net.state !== 'ok'));
-      const fw = m.firewall || {};
-      box.append(line('방화벽(읽기만)', fw.state === 'ok'
-        ? fw.profiles.map(p => `${p.name} ${p.enabled ? '켜짐' : '꺼짐'}`).join(' · ')
-        : `확인 불가 · ${pcReason(fw)}`, fw.state !== 'ok' || fw.profiles.some(p => !p.enabled)));
       const ev = m.events || {};
       box.append(line('Windows 기록(24시간)', ev.state === 'ok'
         ? `경고 ${ev.warningCount}건 · 오류 ${ev.errorCount}건${ev.truncated ? ' · 최근 5,000건까지만 집계(일부)' : ''}`
         : `확인 불가 · ${pcReason(ev)}`, ev.state !== 'ok'));
       box.append(line('주의', '경고·오류 건수는 침해나 공격 탐지 결과가 아니며, 0건이거나 방화벽이 켜져 있다고 PC가 안전하다는 뜻도 아닙니다.'));
-      if (pc.samples.length < 2) box.append(line('비교', '표본이 하나뿐이라 아직 비교할 수 없습니다. 잠시 뒤 「다시 조회」를 누르세요.'));
-      else box.append(line('표본', `최근 ${pc.samples.length}개(최대 ${PC_SAMPLE_MAX}개, 앱을 새로 고치면 지워짐): ${pc.samples.map(s => timeText(s.at)).join(' · ')}`));
+      if (latest.memory !== null && latest.memory >= 90) box.append(line('메모리', '사용량이 90% 이상입니다. 안 쓰는 프로그램을 닫아 보세요', true));
+      if (latest.diskFree !== null && latest.diskFree < 10) box.append(line('디스크', '남은 공간이 10% 미만입니다', true));
     }
     box.append(line('SDP 연결(PC 조회와 별개)', SDP_MODE[sdpMode] || SDP_MODE.unknown, sdpMode !== 'connected'));
+
+    const logBox = document.createElement('section');
+    logBox.setAttribute('aria-label', '최근 기록');
+    const logTitle = document.createElement('h5');
+    logTitle.textContent = `최근 기록 (최신이 위, 최대 ${PC_LOG_MAX}개 · 앱을 새로 고치면 지워짐)`;
+    logBox.append(logTitle);
+    if (!pc.log.length) logBox.append(line('기록', '아직 없음'));
+    for (const entry of pc.log) logBox.append(line(timeText(entry.at), entry.text, entry.warn));
+    box.append(logBox);
     return box;
   }
   return {
