@@ -228,9 +228,144 @@ const PACKAGE_STATUS_TEXT = {
 // package-lock.json 의 정확한 설치 버전(semver). ^·~·x·* 같은 범위는 통과하지 않는다.
 const EXACT_VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 
-export function createStudentView(/* { api, onChange } */) {
+// 마무리: 내 PC 상태 추이 비교(학생 추가 기능). 제공 카드 「내 PC 상태」의 GET /api/pc/status 를 그대로 쓰고,
+// 버튼을 누를 때만 한 번 읽어 최근 표본끼리 차이를 보여 준다. 자동 반복 조회는 하지 않는다.
+const PC_SCHEMA = 'aleph.on.pc-status.v1';
+const PC_PATH = '/api/pc/status';
+const PC_SAMPLE_MAX = 5;
+const PC_REASON = {
+  permission_denied: '권한 부족(관리자 권한이 필요한 항목이며 바꾸지 않습니다)',
+  query_failed: '조회 실패',
+  timeout: '시간 초과',
+  cancelled: '조회 취소',
+  unsupported: '이 운영체제에서 지원하지 않음',
+  invalid_response: '응답 형식이 맞지 않음',
+};
+const SDP_MODE = { connected: 'SDP 연결됨', demo: 'SDP 미연결 · 예제 자료', disconnected: 'SDP 미연결', unknown: 'SDP 연결 확인 불가' };
+const isNum = v => typeof v === 'number' && Number.isFinite(v);
+function pcReason(metric) { return PC_REASON[metric && metric.reason] || '확인 불가'; }
+function percent(part, total) { return isNum(part) && isNum(total) && total > 0 ? Math.round((1000 * part) / total) / 10 : null; }
+function gib(bytes) { return `${(bytes / 1024 ** 3).toFixed(1)}GiB`; }
+function timeText(ms) { return new Date(ms).toLocaleTimeString('ko-KR', { hour12: false }); }
+// 응답 하나를 표본으로 바꾼다. 읽지 못한 값은 null 로 두고 정상값이나 0 으로 채우지 않는다.
+function pcSample(data) {
+  if (!data || data.schema !== PC_SCHEMA || data.source !== 'local-pc') return null;
+  const at = Date.parse(data.measuredAt);
+  if (!Number.isFinite(at)) return null;
+  const m = data.metrics || {};
+  const ok = k => m[k] && m[k].state === 'ok';
+  return {
+    at,
+    metrics: m,
+    cpu: ok('cpu') && isNum(m.cpu.usagePercent) ? m.cpu.usagePercent : null,
+    memory: ok('memory') ? percent(m.memory.usedBytes, m.memory.totalBytes) : null,
+    diskFree: ok('disk') ? percent(m.disk.freeBytes, m.disk.totalBytes) : null,
+  };
+}
+function deltaText(now, before) {
+  if (now === null || before === null || before === undefined) return '비교 불가';
+  const d = Math.round((now - before) * 10) / 10;
+  return d === 0 ? '변화 없음' : `${d > 0 ? '▲' : '▼'} ${Math.abs(d)}%p`;
+}
+
+export function createStudentView({ api, onChange } = {}) {
   // 20단계: 마지막으로 표시한 패키지 조회 시각. 이보다 오래된 응답은 늦게 도착한 이전 응답으로 보고 표시하지 않는다.
   let lastVulnCheckedMs = NaN;
+  // 마무리: PC 추이 표본(메모리에만, 최신이 맨 앞), 진행 중 여부, 마지막 실패, 다시 그린 뒤 버튼 초점 복원 여부.
+  const pc = { samples: [], pending: false, failure: null, refocus: false };
+  async function refreshPc() {
+    if (pc.pending || !api || typeof api.get !== 'function') return;
+    pc.pending = true;
+    pc.refocus = true;
+    if (onChange) onChange();
+    let result;
+    try { result = await api.get(PC_PATH); } catch { result = { ok: false, error: { code: 'NETWORK_ERROR', message: '조회 중 오류가 났습니다.' } }; }
+    pc.pending = false;
+    const sample = result && result.ok ? pcSample(result.data) : null;
+    if (sample) {
+      // 이미 표시한 표본보다 오래된(늦게 도착한) 응답은 쓰지 않는다.
+      if (!pc.samples.length || sample.at > pc.samples[0].at) pc.samples = [sample, ...pc.samples].slice(0, PC_SAMPLE_MAX);
+      pc.failure = null;
+    } else if (result && result.ok) {
+      pc.failure = { code: 'INVALID_RESPONSE', message: '내 PC 상태 응답 형식이 계약(aleph.on.pc-status.v1)과 다릅니다.' };
+    } else {
+      pc.failure = (result && result.error) || { code: 'UNKNOWN_ERROR', message: '확인 불가' };
+    }
+    pc.refocus = true;
+    if (onChange) onChange();
+  }
+  function renderPcTrend(sdpMode) {
+    const box = document.createElement('section');
+    box.className = 'identity-section';
+    box.setAttribute('aria-label', '내 PC 상태 추이 비교');
+    const heading = document.createElement('h4');
+    heading.className = 'identity-title';
+    heading.textContent = '내 PC 상태 추이 비교 (학생 추가 기능)';
+    box.append(heading);
+    box.append(line('안내', '위쪽 제공 카드 「내 PC 상태」와 같은 읽기 전용 조회를 버튼을 누를 때만 한 번 읽고, 최근 표본끼리 차이를 비교합니다.'));
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = pc.pending ? '조회 중…' : '다시 조회';
+    button.disabled = pc.pending;
+    button.setAttribute('aria-busy', pc.pending ? 'true' : 'false');
+    button.addEventListener('click', refreshPc);
+    box.append(button);
+    if (pc.refocus && !pc.pending) {
+      pc.refocus = false;
+      queueMicrotask(() => { if (button.isConnected) button.focus(); });
+    }
+
+    const live = document.createElement('div');
+    live.setAttribute('role', 'status');
+    live.setAttribute('aria-live', 'polite');
+    box.append(live);
+    if (pc.pending) live.append(line('상태', '내 PC 값을 읽는 중입니다(약 1~5초).'));
+
+    if (pc.failure) {
+      live.append(line('조회 실패', `${pc.failure.code}: ${pc.failure.message || '확인 불가'}`, true));
+      const next = pc.failure.code === 'NOT_ALLOWED'
+        ? '이 시작 틀은 학생 코드의 PC 조회를 허용하지 않습니다. 시작 틀을 0.2.18 이상으로 업데이트하세요.'
+        : '앱 서버가 켜져 있는지 확인한 뒤 「다시 조회」를 누르세요. 아래 값은 이전에 성공한 표본이며 이번 조회 결과가 아닙니다.';
+      live.append(line('다음 할 일', next));
+    }
+
+    const [latest, previous] = pc.samples;
+    if (!latest) {
+      if (!pc.pending && !pc.failure) box.append(line('표본', '아직 조회하지 않았습니다. 「다시 조회」를 눌러 첫 값을 읽으세요.'));
+    } else {
+      const m = latest.metrics;
+      box.append(line('측정 시각', `${timeText(latest.at)} · 출처: 이 PC 실측(local-pc)${pc.failure ? ' · 마지막 성공 표본' : ''}`));
+      const row = (label, value, warnWhenNull, prevValue, unitText) => box.append(line(
+        label,
+        value === null ? `확인 불가 · ${unitText}` : `${value}% · ${unitText} · 직전 대비 ${deltaText(value, prevValue)}`,
+        value === null && warnWhenNull,
+      ));
+      row('CPU 사용률', latest.cpu, true, previous && previous.cpu, latest.cpu === null ? pcReason(m.cpu) : '200ms 표본');
+      row('메모리 사용', latest.memory, true, previous && previous.memory,
+        latest.memory === null ? pcReason(m.memory) : `${gib(m.memory.usedBytes)} / ${gib(m.memory.totalBytes)}`);
+      row('디스크 남은 공간', latest.diskFree, true, previous && previous.diskFree,
+        latest.diskFree === null ? pcReason(m.disk) : `${gib(m.disk.freeBytes)} 남음(앱 폴더 드라이브)`);
+      if (latest.memory !== null && latest.memory >= 90) box.append(line('메모리', '사용량이 90% 이상입니다. 안 쓰는 프로그램을 닫아 보세요', true));
+      if (latest.diskFree !== null && latest.diskFree < 10) box.append(line('디스크', '남은 공간이 10% 미만입니다', true));
+
+      const net = m.network || {};
+      box.append(line('네트워크 구성', net.state === 'ok' ? `외부 인터페이스 ${net.interfaceCount}개 · IPv4 주소 ${net.ipv4Count}개` : `확인 불가 · ${pcReason(net)}`, net.state !== 'ok'));
+      const fw = m.firewall || {};
+      box.append(line('방화벽(읽기만)', fw.state === 'ok'
+        ? fw.profiles.map(p => `${p.name} ${p.enabled ? '켜짐' : '꺼짐'}`).join(' · ')
+        : `확인 불가 · ${pcReason(fw)}`, fw.state !== 'ok' || fw.profiles.some(p => !p.enabled)));
+      const ev = m.events || {};
+      box.append(line('Windows 기록(24시간)', ev.state === 'ok'
+        ? `경고 ${ev.warningCount}건 · 오류 ${ev.errorCount}건${ev.truncated ? ' · 최근 5,000건까지만 집계(일부)' : ''}`
+        : `확인 불가 · ${pcReason(ev)}`, ev.state !== 'ok'));
+      box.append(line('주의', '경고·오류 건수는 침해나 공격 탐지 결과가 아니며, 0건이거나 방화벽이 켜져 있다고 PC가 안전하다는 뜻도 아닙니다.'));
+      if (pc.samples.length < 2) box.append(line('비교', '표본이 하나뿐이라 아직 비교할 수 없습니다. 잠시 뒤 「다시 조회」를 누르세요.'));
+      else box.append(line('표본', `최근 ${pc.samples.length}개(최대 ${PC_SAMPLE_MAX}개, 앱을 새로 고치면 지워짐): ${pc.samples.map(s => timeText(s.at)).join(' · ')}`));
+    }
+    box.append(line('SDP 연결(PC 조회와 별개)', SDP_MODE[sdpMode] || SDP_MODE.unknown, sdpMode !== 'connected'));
+    return box;
+  }
   return {
     // 13단계: 지금 로그인한 사용자·기기·세션을 상태에 맞게 보여 주고,
     // 다시 불러오면 새 값으로 바꾼다. 오류일 때 이전 사용자 값을 남기지 않는다
@@ -570,6 +705,9 @@ export function createStudentView(/* { api, onChange } */) {
         diagBox.append(line('상태', '진단 정보 없음'));
       }
       root.append(diagBox);
+
+      // 마무리: 학생 추가 기능(내 PC 상태 추이 비교).
+      root.append(renderPcTrend(data.mode));
 
       const note = modeNote({ mode: data.mode });
       if (note) root.append(note);
