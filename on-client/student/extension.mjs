@@ -271,6 +271,13 @@ function pctCard(value, metric, isWarn, detail) {
   if (value === null) return [CARD_UNKNOWN, pcReason(metric)];
   return [isWarn(value) ? CARD_WARN : CARD_OK, detail(value)];
 }
+// 그래프 아래 한 줄 요약: 지금 값 · 직전 대비 · 범위(최저~최고) · 확인 불가 개수.
+function rangeText(values, now, before) {
+  const known = values.filter(v => v !== null);
+  const missing = values.length - known.length;
+  const range = known.length ? ` · 범위 ${Math.min(...known)}~${Math.max(...known)}%` : '';
+  return `지금 ${now === null ? '확인 불가' : `${now}%`} · 직전 대비 ${deltaText(now, before)}${range}${missing ? ` · 확인 불가 ${missing}개` : ''}`;
+}
 function deltaText(now, before) {
   if (now === null || before === null || before === undefined) return '비교 불가';
   const d = Math.round((now - before) * 10) / 10;
@@ -512,13 +519,13 @@ export function createStudentView({ api, onChange } = {}) {
           bars.append(bar);
         }
         series.append(bars);
-        series.append(el('p', 'kgh-note', `${oldestFirst.map(s => (s[key] === null ? '확인 불가' : `${s[key]}%`)).join(' → ')} · 직전 대비 ${deltaText(latest[key], previous && previous[key])}`));
+        series.append(el('p', 'kgh-note', rangeText(oldestFirst.map(s => s[key]), latest[key], previous && previous[key])));
         chart.append(series);
       }
       chartPanel.append(chart);
       chartPanel.append(el('p', 'kgh-note', pc.samples.length < 2
         ? '표본이 하나뿐이라 아직 비교할 수 없습니다. 잠시 뒤 「다시 조회」를 누르세요.'
-        : `디스크 남은 공간: ${oldestFirst.map(s => (s.diskFree === null ? '확인 불가' : `${s.diskFree}%`)).join(' → ')} · 빗금 막대는 그 시각에 읽지 못한 값입니다. 표본은 이 브라우저에 남아 새로 고쳐도 이어집니다.`));
+        : '막대에 마우스를 올리면 시각과 값이 보입니다. 빗금 막대는 그 시각에 읽지 못한 값입니다.'));
       box.append(chartPanel);
 
       // ③ 연결과 기록(읽기만). PC 조회 결과와 SDP 연결 상태를 따로 보여 준다.
@@ -582,8 +589,25 @@ export function createStudentView({ api, onChange } = {}) {
       const data = identity || {};
       const root = document.createElement('div');
       root.className = 'student-identity';
-      // 마무리: 학생 추가 기능 「내 PC 관제」를 보호 현황 첫 학생 카드 맨 위에 둔다.
-      root.append(renderPcTrend((data.me && data.me.mode) || data.mode));
+
+      // 마무리: 계정·기기·세션이 모두 같은 이유로 실패하면(SDP 미연결) 같은 문장을 세 번 쓰지 않고 한 번에 알린다.
+      const parts = [data.me, data.devices, data.sessions];
+      const firstError = parts[0] && parts[0].status === 'error' && parts[0].error ? parts[0].error.message : null;
+      if (firstError && parts.every(r => r && r.status === 'error' && r.error && r.error.message === firstError)) {
+        const box = document.createElement('section');
+        box.className = 'identity-section';
+        const heading = document.createElement('h4');
+        heading.className = 'identity-title';
+        heading.textContent = '현재 계정 · 등록 기기 · 세션';
+        box.append(heading);
+        box.append(line('상태', '세 항목 모두 확인 불가', true));
+        box.append(line('사유', firstError));
+        box.append(line('뜻', 'SDP(회사 접근 제어 서버)에 연결되지 않은 기본 실행입니다. 앱 사용에 로그인은 필요 없으며, 내 PC 관제는 아래 카드에서 실측으로 보입니다.'));
+        const note = modeNote(data.me);
+        if (note) box.append(note);
+        root.append(box);
+        return root;
+      }
 
       // 현재 로그인한 사용자·기기·세션 (GET /api/me)
       root.append(section('현재 계정', data.me, (box, me) => {
@@ -833,6 +857,8 @@ export function createStudentView({ api, onChange } = {}) {
       const data = statusData || {};
       const root = document.createElement('div');
       root.className = 'student-status';
+      // 마무리: 학생 추가 기능 「내 PC 관제」. 가로 전체를 쓰는 이 카드 맨 위에 둔다.
+      root.append(renderPcTrend(data.mode));
 
       // 알림: resource·code·message 를 항목별로. 없으면 "알림 없음".
       const notiBox = document.createElement('section');
