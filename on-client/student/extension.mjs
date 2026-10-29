@@ -283,6 +283,7 @@ const KGH_CSS = `
 .kgh-dash{display:grid;gap:14px;margin-top:8px}
 .kgh-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
 .kgh-head h4{margin:0;font-size:1rem;color:var(--text)}
+.kgh-auto{font-size:.85rem;display:inline-flex;align-items:center;gap:4px;cursor:pointer}
 .kgh-head .kgh-when{color:var(--muted);font-size:.85rem}
 .kgh-btn{border:0;border-radius:8px;padding:6px 14px;background:var(--accent);color:#fff;font-weight:600;cursor:pointer}
 .kgh-btn:disabled{opacity:.6;cursor:progress}
@@ -328,6 +329,19 @@ const KGH_CSS = `
 .kgh-log time{color:var(--muted);font-variant-numeric:tabular-nums}
 ${Array.from({ length: 21 }, (_, i) => `.kgh-w${i}{width:${i * 5}%}.kgh-h${i}{height:${Math.max(i * 5, 2)}%}`).join('')}
 `;
+const PC_AUTO_MS = 10000;
+const PC_STORE = 'kgh-pc-samples-v1';
+const PC_AUTO_STORE = 'kgh-pc-auto-v1';
+// 이 PC 의 비식별 측정값만 이 브라우저(localStorage)에 남긴다. 저장소를 못 쓰면 메모리에서만 유지한다.
+function loadPcSamples() {
+  try {
+    const raw = JSON.parse(globalThis.localStorage?.getItem(PC_STORE) || '[]');
+    return Array.isArray(raw) ? raw.filter(s => s && isNum(s.at) && s.metrics).slice(0, PC_SAMPLE_MAX) : [];
+  } catch { return []; }
+}
+function savePcSamples(samples) { try { globalThis.localStorage?.setItem(PC_STORE, JSON.stringify(samples)); } catch { /* 저장 못 해도 화면은 그대로 */ } }
+function loadPcAuto() { try { return globalThis.localStorage?.getItem(PC_AUTO_STORE) !== 'off'; } catch { return true; } }
+function savePcAuto(on) { try { globalThis.localStorage?.setItem(PC_AUTO_STORE, on ? 'on' : 'off'); } catch { /* 무시 */ } }
 let kghStyled = false;
 function ensureKghStyle() {
   if (kghStyled) return;
@@ -351,12 +365,13 @@ const STATE_CLASS = { [CARD_OK]: ['ok', 'kgh-ok'], [CARD_WARN]: ['warn', 'kgh-wa
 export function createStudentView({ api, onChange } = {}) {
   // 20단계: 마지막으로 표시한 패키지 조회 시각. 이보다 오래된 응답은 늦게 도착한 이전 응답으로 보고 표시하지 않는다.
   let lastVulnCheckedMs = NaN;
-  // 마무리: PC 추이 표본(메모리에만, 최신이 맨 앞), 진행 중 여부, 마지막 실패, 다시 그린 뒤 버튼 초점 복원 여부.
-  const pc = { samples: [], log: [], filter: 'all', pending: false, failure: null, refocus: false, refocusChip: null };
-  async function refreshPc() {
+  // 마무리: PC 추이 표본(최신이 맨 앞, 이 브라우저에 최대 12개 저장), 진행 중 여부, 마지막 실패, 자동 조회 여부,
+  // 다시 그린 뒤 버튼 초점 복원 여부(사용자가 누른 조회만 초점을 되돌리고 자동 조회는 초점을 가져가지 않는다).
+  const pc = { samples: loadPcSamples(), log: [], filter: 'all', pending: false, failure: null, auto: loadPcAuto(), refocus: false, refocusChip: null };
+  async function refreshPc(byUser = false) {
     if (pc.pending || !api || typeof api.get !== 'function') return;
     pc.pending = true;
-    pc.refocus = true;
+    if (byUser) pc.refocus = true;
     if (onChange) onChange();
     let result;
     try { result = await api.get(PC_PATH); } catch { result = { ok: false, error: { code: 'NETWORK_ERROR', message: '조회 중 오류가 났습니다.' } }; }
@@ -383,8 +398,15 @@ export function createStudentView({ api, onChange } = {}) {
       pc.failure = (result && result.error) || { code: 'UNKNOWN_ERROR', message: '확인 불가' };
     }
     if (pc.failure) log(`▲ 조회 실패 · ${pc.failure.code}`, 'warn');
-    pc.refocus = true;
+    else savePcSamples(pc.samples);
+    if (byUser) pc.refocus = true;
     if (onChange) onChange();
+  }
+  // 브라우저에서만: 열자마자 한 번 조회하고, 자동 조회를 켜 두면 탭이 보이는 동안 10초마다 다시 읽는다
+  // (제공 카드 「10초마다 확인」과 같은 간격). 탭이 숨겨져 있으면 읽지 않는다.
+  if (typeof window !== 'undefined' && typeof document.visibilityState === 'string') {
+    setTimeout(() => refreshPc(false), 0);
+    setInterval(() => { if (pc.auto && document.visibilityState === 'visible') refreshPc(false); }, PC_AUTO_MS);
   }
   // 관제 대시보드형: 머리글(다시 조회) → 오류 안내 → 상태 카드 네 개 → 추이 그래프 → 연결과 기록 → 최근 기록.
   function renderPcTrend(sdpMode) {
@@ -401,8 +423,16 @@ export function createStudentView({ api, onChange } = {}) {
     button.type = 'button';
     button.disabled = pc.pending;
     button.setAttribute('aria-busy', pc.pending ? 'true' : 'false');
-    button.addEventListener('click', refreshPc);
+    button.addEventListener('click', () => refreshPc(true));
     head.append(button);
+    const autoLabel = el('label', 'kgh-auto');
+    const autoBox = el('input');
+    autoBox.type = 'checkbox';
+    autoBox.checked = pc.auto;
+    autoBox.addEventListener('change', () => { pc.auto = autoBox.checked; savePcAuto(pc.auto); pc.refocusAuto = true; if (onChange) onChange(); });
+    if (pc.refocusAuto) { pc.refocusAuto = false; queueMicrotask(() => { if (autoBox.isConnected) autoBox.focus(); }); }
+    autoLabel.append(autoBox, el('span', null, ' 10초마다 자동 조회'));
+    head.append(autoLabel);
     const live = el('span', 'kgh-when', pc.pending ? '새로 읽는 중…(약 1~5초)'
       : pc.failure ? `${timeText(pc.log[0] ? pc.log[0].at : Date.now())} 다시 조회 실패`
         : latest ? `${timeText(latest.at)} 다시 조회 성공 · 출처: 이 PC 실측(local-pc)` : '아직 조회 전 · 「다시 조회」를 눌러 첫 값을 읽으세요');
@@ -414,7 +444,7 @@ export function createStudentView({ api, onChange } = {}) {
       pc.refocus = false;
       queueMicrotask(() => { if (button.isConnected) button.focus(); });
     }
-    box.append(el('p', 'kgh-note', '위쪽 제공 카드 「내 PC 상태」와 같은 읽기 전용 조회를 버튼을 누를 때만 한 번 읽습니다. 자동 반복 조회는 하지 않습니다.'));
+    box.append(el('p', 'kgh-note', '제공 카드 「내 PC 상태」와 같은 읽기 전용 조회(GET /api/pc/status)로 이 PC 를 직접 잽니다. 앱을 열면 한 번 읽고, 자동 조회를 켜 두면 탭이 보이는 동안 10초마다 다시 읽습니다. 그래프 표본은 이 브라우저에 최대 12개까지 남습니다.'));
 
     // 조회 실패: 실패한 항목과 다음 행동. 이전 값은 「마지막 성공 표본」으로만 남긴다.
     if (pc.failure) {
@@ -488,7 +518,7 @@ export function createStudentView({ api, onChange } = {}) {
       chartPanel.append(chart);
       chartPanel.append(el('p', 'kgh-note', pc.samples.length < 2
         ? '표본이 하나뿐이라 아직 비교할 수 없습니다. 잠시 뒤 「다시 조회」를 누르세요.'
-        : `디스크 남은 공간: ${oldestFirst.map(s => (s.diskFree === null ? '확인 불가' : `${s.diskFree}%`)).join(' → ')} · 빗금 막대는 그 시각에 읽지 못한 값입니다. 앱을 새로 고치면 표본이 지워집니다.`));
+        : `디스크 남은 공간: ${oldestFirst.map(s => (s.diskFree === null ? '확인 불가' : `${s.diskFree}%`)).join(' → ')} · 빗금 막대는 그 시각에 읽지 못한 값입니다. 표본은 이 브라우저에 남아 새로 고쳐도 이어집니다.`));
       box.append(chartPanel);
 
       // ③ 연결과 기록(읽기만). PC 조회 결과와 SDP 연결 상태를 따로 보여 준다.
@@ -552,6 +582,8 @@ export function createStudentView({ api, onChange } = {}) {
       const data = identity || {};
       const root = document.createElement('div');
       root.className = 'student-identity';
+      // 마무리: 학생 추가 기능 「내 PC 관제」를 보호 현황 첫 학생 카드 맨 위에 둔다.
+      root.append(renderPcTrend((data.me && data.me.mode) || data.mode));
 
       // 현재 로그인한 사용자·기기·세션 (GET /api/me)
       root.append(section('현재 계정', data.me, (box, me) => {
@@ -884,8 +916,6 @@ export function createStudentView({ api, onChange } = {}) {
       }
       root.append(diagBox);
 
-      // 마무리: 학생 추가 기능(내 PC 상태 추이 비교).
-      root.append(renderPcTrend(data.mode));
 
       const note = modeNote({ mode: data.mode });
       if (note) root.append(note);
